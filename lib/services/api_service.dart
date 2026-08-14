@@ -7,8 +7,8 @@ import '../models/episode_model.dart';
 class ApiService {
   static final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 45),
+      receiveTimeout: const Duration(seconds: 60),
     ),
   );
 
@@ -16,6 +16,7 @@ class ApiService {
     return {
       'x-api-key': AppConfig.apiKey,
       'x-client-version': AppConfig.clientVersion,
+      'ngrok-skip-browser-warning': '1',
       'User-Agent': AppConfig.defaultUserAgent,
     };
   }

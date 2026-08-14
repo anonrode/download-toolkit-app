@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppConfig {
-  static const String defaultServerUrl = "https://seldom-lyricist-triceps.ngrok-free.dev";
-  static const String defaultApiKey = "anon_master_key";
+  static const String defaultServerUrl = "http://68.155.146.145";
+  static const String defaultApiKey = "4KOfpm9co8fVWVSS1sVjAA818zKdmLb";
   static const String clientVersion = "1.1.0";
   static const String defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
