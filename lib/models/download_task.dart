@@ -51,6 +51,8 @@ class DownloadTask {
     return (downloadedBytes / totalBytes).clamp(0.0, 1.0);
   }
 
+  double get progressPercent => progress;
+
   String get fileName {
     return targetFilePath.split(Platform.pathSeparator).last;
   }
