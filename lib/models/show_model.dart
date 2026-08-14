@@ -22,7 +22,7 @@ class ShowModel {
         if (segments.isNotEmpty) {
           parsedTitle = segments.last
               .replaceAll(RegExp(r'[-_]'), ' ')
-              .replaceAll(RegExp(r'\b\w'), (m) => m.group(0)!.toUpperCase())
+              .replaceAllMapped(RegExp(r'\b\w'), (m) => m.group(0)!.toUpperCase())
               .trim();
         }
       }
