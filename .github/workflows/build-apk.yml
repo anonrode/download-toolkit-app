@@ -46,9 +46,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.2
-          name: "Anonrode Downloader v1.0.2 (Lightweight)"
-          body: "Lightweight (~12MB) Android APK release with R8 shrinking and architecture split."
+          tag_name: v2.0.0
+          name: "Anonrode Downloader v2.0.0 (Namida & Seal Edition)"
+          body: "Major v2.0 update with Namida + Seal hybrid UI, direct Instagram/YouTube/TikTok resolver, SSL certificate bypass, smart episode regex cleaner, and compact file manager."
           files: build/app/outputs/flutter-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

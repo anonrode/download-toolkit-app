@@ -24,92 +24,177 @@ class _DownloadsScreenState extends State<DownloadsScreen> with SingleTickerProv
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: DownloadManager.instance,
-      builder: (context, _) {
-        final activeList = DownloadManager.instance.tasks
-            .where((t) => t.status != DownloadStatus.completed)
-            .toList();
-        final completedList = DownloadManager.instance.completedTasks;
-
-        return Scaffold(
-          backgroundColor: const Color(0xFF0A0A0C),
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF0A0A0C),
-            elevation: 0,
-            title: const Text(
-              "Download Queue",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
-            ),
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: const Color(0xFF38BDF8),
-              labelColor: const Color(0xFF38BDF8),
-              unselectedLabelColor: Colors.white54,
-              tabs: [
-                Tab(text: "Active (${activeList.length})"),
-                Tab(text: "Completed (${completedList.length})"),
-              ],
-            ),
-          ),
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              // Active Tab
-              activeList.isEmpty
-                  ? _buildEmptyState("No active downloads", Icons.download_done)
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: activeList.length,
-                      itemBuilder: (context, index) {
-                        return _buildActiveCard(activeList[index]);
-                      },
-                    ),
-
-              // Completed Tab
-              completedList.isEmpty
-                  ? _buildEmptyState("No completed downloads yet", Icons.folder_open)
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: completedList.length,
-                      itemBuilder: (context, index) {
-                        return _buildCompletedCard(completedList[index]);
-                      },
-                    ),
-            ],
-          ),
-        );
-      },
-    );
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return "0 MB";
+    final mb = bytes / (1024 * 1024);
+    if (mb > 1024) {
+      return "${(mb / 1024).toStringAsFixed(1)} GB";
+    }
+    return "${mb.toStringAsFixed(1)} MB";
   }
 
-  Widget _buildEmptyState(String message, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.white24),
-          const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: Colors.white38, fontSize: 14)),
-        ],
+  String _calculateEta(DownloadTask task) {
+    if (task.speedBytesPerSec <= 0 || task.totalBytes <= 0) return "--";
+    final remainingBytes = task.totalBytes - task.downloadedBytes;
+    if (remainingBytes <= 0) return "Done";
+    final seconds = (remainingBytes / task.speedBytesPerSec).round();
+    if (seconds < 60) return "${seconds}s left";
+    final minutes = (seconds / 60).floor();
+    final remainingSecs = seconds % 60;
+    return "${minutes}m ${remainingSecs}s left";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final downloadManager = DownloadManager.instance;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF08090C),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF08090C),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          "Downloads",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: downloadManager,
+          builder: (context, _) {
+            final active = [...downloadManager.activeTasks, ...downloadManager.queuedTasks];
+            final completed = downloadManager.completedTasks;
+
+            return Column(
+              children: [
+                // 1. Compact Storage Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141722),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.sd_storage_rounded, size: 16, color: Color(0xFF00E5FF)),
+                            SizedBox(width: 8),
+                            Text(
+                              "Internal Storage",
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            Spacer(),
+                            Text(
+                              "45.2 GB Free of 128 GB",
+                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: const LinearProgressIndicator(
+                            value: 0.64,
+                            backgroundColor: Colors.white10,
+                            color: Color(0xFF00E5FF),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 2. Tab Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141722),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        color: const Color(0xFF00E5FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelColor: Colors.black,
+                      unselectedLabelColor: Colors.white60,
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      dividerColor: Colors.transparent,
+                      tabs: [
+                        Tab(text: "Active (${active.length})"),
+                        Tab(text: "Completed (${completed.length})"),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 3. Tab Views
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Active Downloads
+                      active.isEmpty
+                          ? _buildEmptyState(Icons.download_done_rounded, "No active downloads")
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: active.length,
+                              itemBuilder: (context, index) {
+                                final task = active[index];
+                                return _buildActiveCard(task, downloadManager);
+                              },
+                            ),
+
+                      // Completed Downloads
+                      completed.isEmpty
+                          ? _buildEmptyState(Icons.video_library_outlined, "No completed downloads yet")
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: completed.length,
+                              itemBuilder: (context, index) {
+                                final task = completed[index];
+                                return _buildCompletedCard(task, downloadManager);
+                              },
+                            ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildActiveCard(DownloadTask task) {
+  Widget _buildActiveCard(DownloadTask task, DownloadManager dm) {
+    final speedMb = (task.speedBytesPerSec / (1024 * 1024)).toStringAsFixed(1);
+    final isResolving = task.status == DownloadStatus.resolving;
     final isDownloading = task.status == DownloadStatus.downloading;
     final isPaused = task.status == DownloadStatus.paused;
-    final isFailed = task.status == DownloadStatus.failed;
-    final isResolving = task.status == DownloadStatus.resolving;
+    final isQueued = task.status == DownloadStatus.queued;
+    final eta = _calculateEta(task);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF141721),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF141722),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Column(
@@ -118,120 +203,93 @@ class _DownloadsScreenState extends State<DownloadsScreen> with SingleTickerProv
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.showName,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      task.episodeTitle,
-                      style: const TextStyle(fontSize: 12, color: Colors.white60),
-                    ),
-                  ],
+                child: Text(
+                  "${task.showName}: ${task.episodeTitle}",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // Status Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isDownloading
-                      ? const Color(0xFF0284C7).withOpacity(0.2)
-                      : isPaused
-                          ? Colors.orange.withOpacity(0.2)
-                          : isFailed
-                              ? Colors.red.withOpacity(0.2)
-                              : Colors.white10,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  isResolving
-                      ? "Resolving..."
-                      : isDownloading
-                          ? "Downloading"
-                          : isPaused
-                              ? "Paused"
-                              : isFailed
-                                  ? "Failed"
-                                  : "Queued",
+              const SizedBox(width: 8),
+              if (isDownloading)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E5FF).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    "● $speedMb MB/s • $eta",
+                    style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                )
+              else
+                Text(
+                  isResolving ? "Resolving..." : (isQueued ? "Queued" : (isPaused ? "Paused" : "Failed")),
                   style: TextStyle(
+                    color: isPaused ? Colors.amberAccent : Colors.white54,
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isDownloading
-                        ? const Color(0xFF38BDF8)
-                        : isPaused
-                            ? Colors.orangeAccent
-                            : isFailed
-                                ? Colors.redAccent
-                                : Colors.white70,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
             ],
           ),
+          const SizedBox(height: 10),
 
-          const SizedBox(height: 12),
-
-          // Progress Bar
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: task.totalBytes > 0 ? task.progress : null,
+              value: task.progressPercent > 0 ? task.progressPercent : null,
               backgroundColor: Colors.white10,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isPaused
-                    ? Colors.orangeAccent
-                    : isFailed
-                        ? Colors.redAccent
-                        : const Color(0xFF38BDF8),
-              ),
-              minHeight: 6,
+              color: isPaused ? Colors.amberAccent : const Color(0xFF00E5FF),
+              minHeight: 5,
             ),
           ),
-
           const SizedBox(height: 8),
 
-          // Metrics & Controls
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                task.formattedSize.isNotEmpty
-                    ? "${task.formattedSize}  ${task.formattedSpeed.isNotEmpty ? '• ${task.formattedSpeed}' : ''}"
-                    : (task.errorMessage ?? "Connecting..."),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isFailed ? Colors.redAccent : Colors.white54,
+                "${_formatBytes(task.downloadedBytes)} / ${_formatBytes(task.totalBytes)} (${(task.progressPercent * 100).toStringAsFixed(0)}%)",
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              const Spacer(),
+              // Pause / Resume
+              InkWell(
+                onTap: () {
+                  if (isDownloading || isResolving) {
+                    dm.pause(task.id);
+                  } else {
+                    dm.resume(task.id);
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
                 ),
               ),
-              Row(
-                children: [
-                  if (isDownloading)
-                    IconButton(
-                      icon: const Icon(Icons.pause_circle_filled, color: Colors.white70, size: 24),
-                      onPressed: () => DownloadManager.instance.pause(task.id),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  if (isPaused || isFailed)
-                    IconButton(
-                      icon: const Icon(Icons.play_circle_filled, color: Color(0xFF38BDF8), size: 24),
-                      onPressed: () => DownloadManager.instance.resume(task.id),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white38, size: 20),
-                    onPressed: () => DownloadManager.instance.cancel(task.id),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+              const SizedBox(width: 8),
+              // Cancel
+              InkWell(
+                onTap: () => dm.cancel(task.id),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ],
+                  child: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18),
+                ),
               ),
             ],
           ),
@@ -240,58 +298,118 @@ class _DownloadsScreenState extends State<DownloadsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildCompletedCard(DownloadTask task) {
+  Widget _buildCompletedCard(DownloadTask task, DownloadManager dm) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF141721),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        color: const Color(0xFF141722),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.04)),
       ),
       child: Row(
         children: [
+          // Green Checkmark Squircle
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(0.15),
-              shape: BoxShape.circle,
+              color: const Color(0xFF10B981).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.check, color: Color(0xFF10B981), size: 20),
+            child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 20),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
+
+          // Title & Size
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  task.showName,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  "${task.showName}: ${task.episodeTitle}",
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  task.fileName,
-                  style: const TextStyle(fontSize: 11, color: Colors.white54),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  _formatBytes(task.totalBytes > 0 ? task.totalBytes : task.downloadedBytes),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E293B),
-              foregroundColor: const Color(0xFF38BDF8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+
+          // Play Button
+          InkWell(
+            onTap: () => dm.openFile(task),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E5FF).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.play_arrow_rounded, color: Color(0xFF00E5FF), size: 16),
+                  SizedBox(width: 4),
+                  Text("Play", style: TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
-            icon: const Icon(Icons.play_arrow, size: 16),
-            label: const Text("VLC", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () => DownloadManager.instance.openFile(task),
           ),
+          const SizedBox(width: 8),
+
+          // Delete Button
+          InkWell(
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: const Color(0xFF141722),
+                  title: const Text("Delete Download?", style: TextStyle(color: Colors.white)),
+                  content: Text("Delete '${task.episodeTitle}' from device storage?", style: const TextStyle(color: Colors.white70)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text("Delete", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                dm.deleteDownload(task);
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(IconData icon, String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: Colors.white.withOpacity(0.15)),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(color: Colors.white54, fontSize: 13)),
         ],
       ),
     );
