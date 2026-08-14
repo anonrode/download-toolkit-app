@@ -5,6 +5,9 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
@@ -43,9 +46,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest-build
-          name: "Anonrode Downloader Latest Build"
-          body: "Automated cloud build for Anonrode Downloader mobile app."
+          tag_name: v1.0.0
+          name: "Anonrode Downloader v1.0.0"
+          body: "Official Android APK release for Anonrode Downloader mobile app."
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
