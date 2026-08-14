@@ -33,22 +33,22 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build Release APK
-        run: flutter build apk --release
+      - name: Build Split Release APKs
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Anonrode-Downloader-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: "Anonrode Downloader v1.0.1"
-          body: "Direct VPS connection release for Anonrode Downloader mobile app."
-          files: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v1.0.2
+          name: "Anonrode Downloader v1.0.2 (Lightweight)"
+          body: "Lightweight (~12MB) Android APK release with R8 shrinking and architecture split."
+          files: build/app/outputs/flutter-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
