@@ -53,8 +53,8 @@ fun SettingsSheet(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0x33FFFFFF))
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(OverlayLight)
             )
         }
     ) {
@@ -102,7 +102,7 @@ fun SettingsSheet(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(Radius.md)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -131,7 +131,7 @@ fun SettingsSheet(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(Radius.md)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -143,13 +143,13 @@ fun SettingsSheet(
                 ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (uiState.isVpsOnline) EmeraldSuccess.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f))
+                            .clip(RoundedCornerShape(Radius.sm))
+                            .background(if (uiState.isVpsOnline) EmeraldSuccess.copy(alpha = 0.15f) else ErrorRed.copy(alpha = 0.15f))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = if (uiState.isVpsOnline) "● Connected (${uiState.vpsLatencyMs}ms)" else "○ Server Offline",
-                            color = if (uiState.isVpsOnline) EmeraldSuccess else Color.Red,
+                            color = if (uiState.isVpsOnline) EmeraldSuccess else ErrorRed,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -159,8 +159,8 @@ fun SettingsSheet(
 
                     Button(
                         onClick = { viewModel.checkServerPing() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x14FFFFFF), contentColor = SealPrimary),
-                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = OverlayLighter, contentColor = SealPrimary),
+                        shape = RoundedCornerShape(Radius.sm),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text("Test", fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -242,8 +242,8 @@ fun SettingsSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0x14FFFFFF))
+                        .clip(RoundedCornerShape(Radius.sm))
+                        .background(OverlayLighter)
                         .padding(10.dp)
                 ) {
                     Text("/storage/emulated/0/Download/Anon/", color = Color.White, fontSize = 12.sp)
@@ -335,7 +335,7 @@ fun SettingsSheet(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(Radius.lg)
             ) {
                 Text("Save & Apply", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -350,9 +350,9 @@ fun SettingsGroupCard(title: String, icon: androidx.compose.ui.graphics.vector.I
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(SurfaceDark)
-            .border(1.dp, CardBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
             .padding(16.dp)
     ) {
         Column {
@@ -374,10 +374,10 @@ fun DropdownPill(current: String, options: List<String>, onSelected: (String) ->
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF1E2333))
+            .clip(RoundedCornerShape(Radius.md))
+            .background(SurfaceHighlight)
             .clickable { expanded = true }
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(current, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -387,7 +387,7 @@ fun DropdownPill(current: String, options: List<String>, onSelected: (String) ->
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(Color(0xFF1E2333))
+            modifier = Modifier.background(SurfaceHighlight)
         ) {
             options.forEach { opt ->
                 DropdownMenuItem(
