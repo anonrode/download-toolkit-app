@@ -19,6 +19,14 @@ val TextPrimary = Color(0xFFF8FAFC)           // 95% White
 val TextSecondary = Color(0xFF94A3B8)         // Cool Slate Grey
 val TextMuted = Color(0xFF64748B)             // Muted Slate Grey
 
+// Semantic colors — so screens stop inlining Color(0x…) literals. These are the
+// only non-greyscale accents; keep the palette monochrome otherwise.
+val ErrorRed = Color(0xFFF87171)              // failed downloads, destructive actions
+val DividerColor = Color(0xFF1F232D)          // hairline separators (== CardBorder)
+val Scrim = Color(0xD9000000)                 // 85% black behind modals/sheets
+val OverlayLight = Color(0x1FFFFFFF)          // 12% white — pressed/hover on dark
+val OverlayLighter = Color(0x14FFFFFF)        // 8% white — subtle fills
+
 // Aliases for compatibility
 val SurfaceDark = SurfaceCard
 val SealAccent = SealSecondary
