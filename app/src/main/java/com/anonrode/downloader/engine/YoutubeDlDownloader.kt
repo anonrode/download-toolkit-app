@@ -63,7 +63,11 @@ object YoutubeDlDownloader {
 
             if (referer.isNotBlank()) addOption("--referer", referer)
             if (ua.isNotBlank()) addOption("--user-agent", ua)
-            headers.forEach { (k, v) -> addOption("--add-header", "$k:$v") }
+            headers.forEach { (k, v) ->
+                if (!k.equals("Referer", ignoreCase = true) && !k.equals("User-Agent", ignoreCase = true)) {
+                    addOption("--add-header", "$k:$v")
+                }
+            }
 
             if (isExtractorTask) {
                 // Social / HLS / Extractor mode: native yt-dlp extraction + ffmpeg muxing
@@ -76,15 +80,12 @@ object YoutubeDlDownloader {
                 val conns = if (isConnectionSensitive(sourceUrl)) 1 else parallelSockets.coerceIn(1, 16)
                 val aria2Args = buildString {
                     append("aria2c:-x $conns -s $conns --min-split-size=1M --continue=true")
-                    if (referer.isNotBlank()) append(" --referer=\"$referer\"")
-                    if (ua.isNotBlank()) append(" --user-agent=\"$ua\"")
                     if (origin.isNotBlank()) append(" --header=\"Origin: $origin\"")
                     append(" --header=\"Accept: video/mp4,video/x-matroska,video/*,*/*\"")
                     append(" --check-certificate=false")
                     append(" --summary-interval=1")
                 }
                 addOption("--downloader-args", aria2Args)
-                addOption("--external-downloader-args", aria2Args)
             }
         }
 
