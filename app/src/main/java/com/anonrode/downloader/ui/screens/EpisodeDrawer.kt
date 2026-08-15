@@ -70,7 +70,7 @@ fun EpisodeDrawer(
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(

@@ -184,7 +184,7 @@ fun ActiveDownloadCard(task: DownloadTask, viewModel: MainViewModel) {
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.ellipsis,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -275,7 +275,7 @@ fun CompletedDownloadCard(task: DownloadTask, viewModel: MainViewModel, context:
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 maxLines = 1,
-                overflow = TextOverflow.ellipsis
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(task.formattedSize, color = TextMuted, fontSize = 11.sp)

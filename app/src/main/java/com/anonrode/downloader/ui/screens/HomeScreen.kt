@@ -321,7 +321,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 maxLines = 1,
-                                overflow = TextOverflow.ellipsis,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -353,7 +353,7 @@ fun HomeScreen(
             onDismissRequest = { showSuspiciousDialog = false },
             containerColor = SurfaceDark,
             title = { Text("Confirm Search", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-            text = { Text(""${uiState.query}" looks like random text. Do you want to search anyway?", color = TextSecondary, fontSize = 13.sp) },
+            text = { Text("\"${uiState.query}\" looks like random text. Do you want to search anyway?", color = TextSecondary, fontSize = 13.sp) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -445,7 +445,7 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 maxLines = 2,
-                overflow = TextOverflow.ellipsis,
+                overflow = TextOverflow.Ellipsis,
                 lineHeight = 16.sp
             )
             Spacer(modifier = Modifier.height(2.dp))

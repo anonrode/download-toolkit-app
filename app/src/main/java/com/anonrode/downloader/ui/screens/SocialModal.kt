@@ -94,7 +94,7 @@ fun SocialModal(
                     color = TextSecondary,
                     fontSize = 12.sp,
                     maxLines = 2,
-                    overflow = TextOverflow.ellipsis
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 

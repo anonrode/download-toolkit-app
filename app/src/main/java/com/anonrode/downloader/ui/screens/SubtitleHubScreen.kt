@@ -174,7 +174,7 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 maxLines = 1,
-                overflow = TextOverflow.ellipsis
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
