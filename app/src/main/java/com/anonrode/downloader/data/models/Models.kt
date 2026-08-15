@@ -70,7 +70,6 @@ enum class TaskStatus {
 }
 
 @Serializable
-@Serializable
 data class DownloadTask(
     val id: String,
     val showName: String,
