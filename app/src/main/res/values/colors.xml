@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App-icon + splash palette. Matches the AMOLED theme (pure black,
+         crisp near-white). No cyan; the old launcher used #00E5FF, the same
+         "AI blue" removed from the rest of the UI. -->
+    <color name="icon_background">#000000</color>
+    <color name="icon_foreground">#F8FAFC</color>
+    <color name="splash_background">#000000</color>
+</resources>

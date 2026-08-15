@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground. Content sits within the center safe zone (the outer
+  ~18dp of the 108 canvas is clipped to whatever mask the launcher applies), so
+  the glyph is drawn roughly within the 27..81 band on both axes.
+
+  A download mark: a vertical stem with a downward arrowhead, landing on a tray
+  line, reading as "save to device" at a glance, monochrome to match the theme.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Down arrow: stem + head, as one filled shape. -->
+    <path
+        android:fillColor="@color/icon_foreground"
+        android:pathData="M48,34h12v18h13L54,72L35,52h13z" />
+    <!-- Tray / baseline the arrow drops into. -->
+    <path
+        android:fillColor="@color/icon_foreground"
+        android:pathData="M36,76h36a3,3 0 0 1 3,3v0a3,3 0 0 1 -3,3h-36a3,3 0 0 1 -3,-3v0a3,3 0 0 1 3,-3z" />
+</vector>

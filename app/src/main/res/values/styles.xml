@@ -2,7 +2,17 @@
 <resources>
     <style name="Theme.AnonDownloader" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">#00000000</item>
-        <item name="android:navigationBarColor">#FF08090C</item>
-        <item name="android:windowBackground">#FF08090C</item>
+        <item name="android:navigationBarColor">#FF000000</item>
+        <item name="android:windowBackground">#FF000000</item>
+    </style>
+
+    <!-- Launch theme handed to the SplashScreen API. It shows the branded icon
+         on a pure-black window instead of a blank/white flash during cold start,
+         then hands off to Theme.AnonDownloader once the first frame is ready.
+         Parent is the compat SplashScreen theme so it also works below API 31. -->
+    <style name="Theme.AnonDownloader.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.AnonDownloader</item>
     </style>
 </resources>

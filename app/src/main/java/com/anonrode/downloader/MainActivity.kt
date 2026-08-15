@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.anonrode.downloader.service.DownloadService
 import com.anonrode.downloader.ui.screens.*
 import com.anonrode.downloader.ui.theme.AnonDownloaderTheme
@@ -20,6 +21,12 @@ class MainActivity : ComponentActivity() {
     private var activeSharedUrl = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must precede super.onCreate(): swaps the launch-time splash theme for
+        // the real theme and shows the branded icon on black instead of a blank
+        // window during cold start. We don't hold it past the first frame -- the
+        // heavy yt-dlp init runs async in AnonApp and the download path awaits it
+        // separately, so blocking the splash on init would just stall the UI.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         DownloadService.start(this)
