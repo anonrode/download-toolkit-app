@@ -21,16 +21,11 @@ android {
             useSupportLibrary = true
         }
 
-        // youtubedl-android ships native binaries (yt-dlp's python runtime +
-        // ffmpeg) per ABI. Limit to the four it supports so no other ABI pulls
-        // a partial/missing native set.
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
     }
 
-    // Per-ABI APKs so each user downloads only their architecture's ~20-40MB of
-    // native libs, not all four. universalApk stays on as a single-file fallback.
     splits {
         abi {
             isEnable = true
@@ -40,8 +35,6 @@ android {
         }
     }
 
-    // yt-dlp unpacks its bundled python at runtime, so the .so files must be
-    // extracted to disk rather than loaded from the compressed APK.
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -56,7 +49,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -109,10 +103,7 @@ dependencies {
     // Coil Image Loading
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // yt-dlp + ffmpeg + aria2c as on-device native binaries (Maven Central,
-    // prebuilt). yt-dlp muxes HLS/social to a playable mp4; for plain files it
-    // drives the bundled aria2c (single file + real congestion control, like the
-    // Termux tool). GPL-3.0: this makes the app GPL-3.0.
+    // yt-dlp + ffmpeg + aria2c
     val youtubedlAndroid = "0.18.1"
     implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroid")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroid")

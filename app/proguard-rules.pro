@@ -1,3 +1,5 @@
+-keep class com.yausername.** { *; }
+-dontwarn com.yausername.**
 -keep class com.anonrode.downloader.data.models.** { *; }
 -keep class okhttp3.** { *; }
 -dontwarn okhttp3.**
