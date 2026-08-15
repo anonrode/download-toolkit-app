@@ -7,11 +7,7 @@ import com.anonrode.downloader.data.models.DownloadTask
 import com.anonrode.downloader.data.models.TaskStatus
 import com.anonrode.downloader.data.net.HttpClient
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -30,14 +26,11 @@ class Aria2Engine private constructor() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeJobs = ConcurrentHashMap<String, Job>()
 
-    private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
-    val tasks = _tasks.asStateFlow()
-
-    // Where the task list is persisted so downloads survive an app restart.
-    // Set once by MainViewModel (the engine is a context-less singleton), so a
-    // null file just means "not wired yet" and persistence is skipped.
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private var stateFile: File? = null
+    // The repository owns the task list + persistence; the engine owns download
+    // orchestration. Re-exposed as `tasks` so existing callers (ViewModel,
+    // DownloadService) that observe engine.tasks are unchanged.
+    private val repo = DownloadRepository()
+    val tasks: StateFlow<List<DownloadTask>> = repo.tasks
 
     // Shared reference — set by MainViewModel on init so every
     // resolve call uses the user's configured key + server URL.
@@ -52,42 +45,8 @@ class Aria2Engine private constructor() {
     var autoOrganizeByShow = true
     var instantSocialDownload = false
 
-    /**
-     * Wire in a persistence location and reload any tasks from a previous run.
-     * Called once from MainViewModel.init. Interrupted downloads (DOWNLOADING/
-     * RESOLVING when the app died) are demoted to PAUSED so the user can resume
-     * them rather than seeing a task frozen mid-flight with no live coroutine.
-     */
-    fun initPersistence(dir: File) {
-        if (stateFile != null) return
-        val f = File(dir, "download_tasks.json")
-        stateFile = f
-        try {
-            if (f.exists()) {
-                val restored = json.decodeFromString<List<DownloadTask>>(f.readText())
-                    .map {
-                        if (it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING) {
-                            it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0)
-                        } else it
-                    }
-                _tasks.value = restored
-            }
-        } catch (_: Exception) {
-            // Corrupt state file: start clean rather than crash on launch.
-            _tasks.value = emptyList()
-        }
-    }
-
-    /** Serialize the current task list. Cheap (a handful of tasks) and only
-     *  writes when a file has been wired, so it is a no-op in tests. */
-    private fun persist() {
-        val f = stateFile ?: return
-        scope.launch {
-            try {
-                f.writeText(json.encodeToString(_tasks.value))
-            } catch (_: Exception) {}
-        }
-    }
+    /** Wire the persistence location and reload a previous run's tasks. */
+    fun initPersistence(dir: File) = repo.initPersistence(dir)
 
     private val okHttpClient: OkHttpClient get() = HttpClient.download
 
@@ -154,33 +113,31 @@ class Aria2Engine private constructor() {
             createdAt = System.currentTimeMillis()
         )
 
-        _tasks.update { listOf(task) + it }
-
-        persist()
+        repo.addFirst(task)
         processQueue()
         return task
     }
 
     fun pause(taskId: String) {
-        if (taskOf(taskId) == null) return
+        if (repo.find(taskId) == null) return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
-        update(taskId) { it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0) }
-        persist()
+        repo.update(taskId) { it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0) }
+        repo.persist()
         processQueue()
     }
 
     fun resume(taskId: String) {
-        val task = taskOf(taskId) ?: return
+        val task = repo.find(taskId) ?: return
         if (task.status == TaskStatus.PAUSED || task.status == TaskStatus.FAILED) {
-            update(taskId) { it.copy(status = TaskStatus.QUEUED, errorMessage = null) }
-            persist()
+            repo.update(taskId) { it.copy(status = TaskStatus.QUEUED, errorMessage = null) }
+            repo.persist()
             processQueue()
         }
     }
 
     fun cancel(taskId: String) {
-        val task = taskOf(taskId) ?: return
+        val task = repo.find(taskId) ?: return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
 
@@ -189,41 +146,21 @@ class Aria2Engine private constructor() {
             File("${task.tempFilePath}.part$i").delete()
         }
 
-        _tasks.update { list -> list.filterNot { it.id == taskId } }
-
-        persist()
+        repo.remove(taskId)
         processQueue()
     }
 
     fun deleteCompleted(task: DownloadTask) {
         File(task.targetFilePath).delete()
         File(task.tempFilePath).delete()
-        _tasks.update { list -> list.filterNot { it.id == task.id } }
-        persist()
+        repo.remove(task.id)
     }
-
-    /**
-     * Atomically replace a task with a modified copy. DownloadTask is immutable,
-     * so every state change goes through here: StateFlow.update swaps the list
-     * reference AND the changed item is a new object, so Compose's item-level
-     * equality actually sees the change. The old code mutated a shared `var`
-     * task in place and re-wrapped the same references, which compared equal and
-     * left the progress UI stale -- the root cause of the janky download bar.
-     */
-    private fun update(taskId: String, transform: (DownloadTask) -> DownloadTask) {
-        _tasks.update { list ->
-            list.map { if (it.id == taskId) transform(it) else it }
-        }
-    }
-
-    /** Snapshot of a task by id (immutable), or null if it is gone. */
-    private fun taskOf(taskId: String): DownloadTask? = _tasks.value.find { it.id == taskId }
 
     private fun processQueue() {
-        val running = _tasks.value.count { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
+        val running = repo.snapshot().count { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
         val slots = maxConcurrentDownloads - running
         if (slots > 0) {
-            val queued = _tasks.value.filter { it.status == TaskStatus.QUEUED }.take(slots)
+            val queued = repo.snapshot().filter { it.status == TaskStatus.QUEUED }.take(slots)
             queued.forEach { startTask(it) }
         }
     }
@@ -236,7 +173,7 @@ class Aria2Engine private constructor() {
             // object to lock, and progress is a running total the workers bump.
             val downloaded = AtomicLong(0L)
             try {
-                update(taskId) { it.copy(status = TaskStatus.RESOLVING) }
+                repo.update(taskId) { it.copy(status = TaskStatus.RESOLVING) }
 
                 // Use the shared VpsApiClient that has the user's key
                 val client = apiClient
@@ -248,10 +185,10 @@ class Aria2Engine private constructor() {
                     val recipe = client.resolveEpisode(task.originalUrl, defaultQuality)
                     resolvedUrl = recipe.url
                     headers = recipe.headers
-                    update(taskId) { it.copy(resolvedUrl = recipe.url, headers = recipe.headers) }
+                    repo.update(taskId) { it.copy(resolvedUrl = recipe.url, headers = recipe.headers) }
                 }
 
-                update(taskId) { it.copy(status = TaskStatus.DOWNLOADING) }
+                repo.update(taskId) { it.copy(status = TaskStatus.DOWNLOADING) }
 
                 val directUrl = resolvedUrl ?: throw Exception("Failed to resolve link")
 
@@ -292,14 +229,14 @@ class Aria2Engine private constructor() {
                         val speed = (soFar - lastBytes).toDouble() / (diff / 1000.0)
                         lastBytes = soFar
                         lastTime = now
-                        update(taskId) { it.copy(downloadedBytes = soFar, speedBytesPerSec = speed) }
+                        repo.update(taskId) { it.copy(downloadedBytes = soFar, speedBytesPerSec = speed) }
                     }
                 }
 
                 // 2. Multi-Segment Parallel Download (files > 4MB with range support)
                 val segments = parallelSocketsPerFile.coerceIn(4, 16)
                 if (acceptsRanges && totalSize > 4 * 1024 * 1024L) {
-                    update(taskId) { it.copy(totalBytes = totalSize) }
+                    repo.update(taskId) { it.copy(totalBytes = totalSize) }
                     val chunkSize = (totalSize + segments - 1) / segments
                     val chunkFiles = mutableListOf<File>()
                     val expectedLens = mutableListOf<Long>()
@@ -392,7 +329,7 @@ class Aria2Engine private constructor() {
                             throw Exception("Merged file size mismatch ($mergedLen/$totalSize bytes)")
                         }
 
-                        update(taskId) {
+                        repo.update(taskId) {
                             it.copy(status = TaskStatus.COMPLETED,
                                     downloadedBytes = totalSize, speedBytesPerSec = 0.0)
                         }
@@ -415,7 +352,7 @@ class Aria2Engine private constructor() {
                         downloaded.set(0L)
                         contentLength
                     }
-                    update(taskId) { it.copy(totalBytes = knownTotal, downloadedBytes = downloaded.get()) }
+                    repo.update(taskId) { it.copy(totalBytes = knownTotal, downloadedBytes = downloaded.get()) }
 
                     val buffer = ByteArray(64 * 1024)
                     body.byteStream().use { ins ->
@@ -445,7 +382,7 @@ class Aria2Engine private constructor() {
                         if (finalFile.exists()) finalFile.delete()
                         tempFile.renameTo(finalFile)
 
-                        update(taskId) {
+                        repo.update(taskId) {
                             it.copy(status = TaskStatus.COMPLETED,
                                     downloadedBytes = if (knownTotal > 0L) knownTotal else downloaded.get(),
                                     speedBytesPerSec = 0.0)
@@ -455,7 +392,7 @@ class Aria2Engine private constructor() {
             } catch (e: CancellationException) {
                 // Gracefully handled — paused or cancelled
             } catch (e: Exception) {
-                update(taskId) {
+                repo.update(taskId) {
                     it.copy(status = TaskStatus.FAILED,
                             errorMessage = e.message ?: "Download failed", speedBytesPerSec = 0.0)
                 }
@@ -463,7 +400,7 @@ class Aria2Engine private constructor() {
                 activeJobs.remove(taskId)
                 // Persist the settled state (COMPLETED/FAILED, or PAUSED via
                 // cancellation) so it survives a restart. Runs on every exit path.
-                persist()
+                repo.persist()
                 processQueue()
             }
         }
