@@ -16,14 +16,9 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 class Aria2Engine private constructor() {
 
@@ -97,17 +92,10 @@ class Aria2Engine private constructor() {
     }
 
     private val okHttpClient: OkHttpClient by lazy {
-        val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
-            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-        })
-        val ssl = SSLContext.getInstance("SSL")
-        ssl.init(null, trustAll, SecureRandom())
-
+        // Default TLS: CDN download URLs are real https and their certificates
+        // SHOULD be validated. The previous trust-all manager silenced all cert
+        // and hostname checks app-wide -- a MITM hole for zero benefit.
         OkHttpClient.Builder()
-            .sslSocketFactory(ssl.socketFactory, trustAll[0] as X509TrustManager)
-            .hostnameVerifier { _, _ -> true }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
