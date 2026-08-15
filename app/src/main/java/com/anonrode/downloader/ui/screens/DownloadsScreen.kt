@@ -69,9 +69,9 @@ fun DownloadsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(Radius.lg))
                     .background(SurfaceCard)
-                    .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                    .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
                     .padding(14.dp)
             ) {
                 Column {
@@ -93,9 +93,9 @@ fun DownloadsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
+                            .clip(RoundedCornerShape(Radius.sm)),
                         color = SealPrimary,
-                        trackColor = Color(0x1AFFFFFF)
+                        trackColor = OverlayLighter
                     )
                 }
             }
@@ -105,7 +105,7 @@ fun DownloadsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(Radius.md))
                     .background(SurfaceCard)
                     .padding(4.dp)
             ) {
@@ -118,7 +118,7 @@ fun DownloadsScreen(
                 if (active.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.DownloadDone, contentDescription = null, tint = Color(0x1FFFFFFF), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Rounded.DownloadDone, contentDescription = null, tint = OverlayLight, modifier = Modifier.size(48.dp))
                             Spacer(modifier = Modifier.height(10.dp))
                             Text("No active downloads", color = TextMuted, fontSize = 13.sp)
                         }
@@ -137,7 +137,7 @@ fun DownloadsScreen(
                 if (completed.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = Color(0x1FFFFFFF), modifier = Modifier.size(48.dp))
+                            Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = OverlayLight, modifier = Modifier.size(48.dp))
                             Spacer(modifier = Modifier.height(10.dp))
                             Text("No completed downloads yet", color = TextMuted, fontSize = 13.sp)
                         }
@@ -161,7 +161,7 @@ fun DownloadsScreen(
 fun TabButton(label: String, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Radius.sm))
             .background(if (isSelected) SurfaceElevated else Color.Transparent)
             .clickable { onClick() }
             .padding(vertical = 9.dp),
@@ -181,9 +181,9 @@ fun ActiveDownloadCard(task: DownloadTask, viewModel: MainViewModel) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(SurfaceCard)
-            .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
             .padding(14.dp)
     ) {
         Column {
@@ -205,7 +205,7 @@ fun ActiveDownloadCard(task: DownloadTask, viewModel: MainViewModel) {
                             TaskStatus.FAILED -> "Failed: ${task.errorMessage ?: "Network error"}"
                             else -> "${task.formattedSize} • ${task.formattedSpeed}"
                         },
-                        color = if (task.status == TaskStatus.FAILED) Color(0xFFF87171) else TextMuted,
+                        color = if (task.status == TaskStatus.FAILED) ErrorRed else TextMuted,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -228,7 +228,7 @@ fun ActiveDownloadCard(task: DownloadTask, viewModel: MainViewModel) {
                         Button(
                             onClick = { viewModel.engine.resume(task.id) },
                             colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(Radius.sm),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -251,9 +251,9 @@ fun ActiveDownloadCard(task: DownloadTask, viewModel: MainViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = if (task.status == TaskStatus.FAILED) Color(0xFFF87171) else SealPrimary,
-                trackColor = Color(0x1AFFFFFF)
+                    .clip(RoundedCornerShape(Radius.sm)),
+                color = if (task.status == TaskStatus.FAILED) ErrorRed else SealPrimary,
+                trackColor = OverlayLighter
             )
         }
     }
@@ -267,16 +267,16 @@ fun CompletedDownloadCard(task: DownloadTask, viewModel: MainViewModel, context:
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(SurfaceCard)
-            .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(Radius.md))
                     .background(EmeraldSuccess.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -316,7 +316,7 @@ fun CompletedDownloadCard(task: DownloadTask, viewModel: MainViewModel, context:
                     } catch (_: Exception) {}
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(Radius.sm),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))

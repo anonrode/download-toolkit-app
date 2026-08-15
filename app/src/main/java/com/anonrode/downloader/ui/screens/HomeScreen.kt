@@ -135,9 +135,9 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(Radius.lg))
                     .background(SurfaceCard)
-                    .border(1.dp, CardBorder, RoundedCornerShape(20.dp))
+                    .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
                     .padding(horizontal = 14.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -221,7 +221,7 @@ fun HomeScreen(
                         }
                     },
                     modifier = Modifier.height(36.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(Radius.md),
                     colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
                     contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
@@ -242,9 +242,9 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .padding(end = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(Radius.md))
                             .background(if (isSelected) SealPrimary else SurfaceCard)
-                            .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(12.dp))
+                            .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(Radius.md))
                             .clickable { viewModel.onFilterSelected(key) }
                             .padding(horizontal = 14.dp, vertical = 7.dp)
                     ) {
@@ -287,7 +287,7 @@ fun HomeScreen(
                                 Button(
                                     onClick = onOpenSettings,
                                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(Radius.sm)
                                 ) {
                                     Text("Open Settings", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -297,7 +297,7 @@ fun HomeScreen(
                     uiState.searchResults.isEmpty() -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Rounded.MovieFilter, contentDescription = null, tint = Color(0x1FFFFFFF), modifier = Modifier.size(56.dp))
+                                Icon(Icons.Rounded.MovieFilter, contentDescription = null, tint = OverlayLight, modifier = Modifier.size(56.dp))
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text("Search drama series or paste a link", color = TextMuted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -328,9 +328,9 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(Radius.lg))
                         .background(SurfaceElevated)
-                        .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+                        .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
                         .clickable { onOpenDownloads() }
                         .padding(14.dp)
                 ) {
@@ -359,9 +359,9 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
+                                .clip(RoundedCornerShape(Radius.sm)),
                             color = SealPrimary,
-                            trackColor = Color(0x1AFFFFFF)
+                            trackColor = OverlayLighter
                         )
                     }
                 }
@@ -375,9 +375,9 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .aspectRatio(0.70f)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(SurfaceCard)
-            .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
             .clickable { onClick() }
     ) {
         if (!show.poster.isNullOrBlank()) {
@@ -394,7 +394,7 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
                     .background(SurfaceElevated),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.Movie, contentDescription = null, tint = Color(0x22FFFFFF), modifier = Modifier.size(36.dp))
+                Icon(Icons.Rounded.Movie, contentDescription = null, tint = OverlayLight, modifier = Modifier.size(36.dp))
             }
         }
 
@@ -403,6 +403,8 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(
+                    // Poster scrim: a designed 3-stop black ramp for title
+                    // legibility over artwork, not a themeable surface color.
                     Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color(0x66000000), Color(0xFA000000)),
                         startY = 90f
@@ -415,9 +417,9 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(8.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xD9000000))
-                .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(Radius.sm))
+                .background(Scrim)
+                .border(1.dp, CardBorder, RoundedCornerShape(Radius.sm))
                 .padding(horizontal = 7.dp, vertical = 3.dp)
         ) {
             Text(
