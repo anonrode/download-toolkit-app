@@ -46,8 +46,8 @@ fun SocialModal(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0x33FFFFFF))
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(OverlayLight)
             )
         }
     ) {
@@ -61,7 +61,7 @@ fun SocialModal(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(Radius.md))
                         .background(SurfaceElevated),
                     contentAlignment = Alignment.Center
                 ) {
@@ -84,9 +84,9 @@ fun SocialModal(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(Radius.md))
                     .background(SurfaceDark)
-                    .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                    .border(1.dp, CardBorder, RoundedCornerShape(Radius.md))
                     .padding(12.dp)
             ) {
                 Text(
@@ -116,9 +116,9 @@ fun SocialModal(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(Radius.md))
                             .background(if (isSelected) SurfaceElevated else SurfaceDark)
-                            .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(12.dp))
+                            .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(Radius.md))
                             .clickable { selectedQuality = key }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -155,7 +155,7 @@ fun SocialModal(
                     .fillMaxWidth()
                     .height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(Radius.md)
             ) {
                 Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))

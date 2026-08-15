@@ -71,9 +71,9 @@ fun SubtitleHubScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(Radius.pill))
                     .background(SurfaceDark)
-                    .border(1.dp, CardBorder, RoundedCornerShape(22.dp))
+                    .border(1.dp, CardBorder, RoundedCornerShape(Radius.pill))
                     .padding(horizontal = 14.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -113,7 +113,7 @@ fun SubtitleHubScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.Rounded.Subtitles, contentDescription = null, tint = Color(0x22FFFFFF), modifier = Modifier.size(54.dp))
+                        Icon(Icons.Rounded.Subtitles, contentDescription = null, tint = OverlayLight, modifier = Modifier.size(54.dp))
                         Spacer(modifier = Modifier.height(12.dp))
                         Text("Search English Season Packs & Viki Subtitles", color = TextMuted, fontSize = 13.sp)
                     }
@@ -144,16 +144,16 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(Radius.lg))
             .background(SurfaceDark)
-            .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.lg))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(38.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(Radius.md))
                 .background(if (sub.type == "pack") EmeraldSuccess.copy(alpha = 0.15f) else SealPrimary.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
@@ -187,7 +187,7 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
         Button(
             onClick = onDownload,
             colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(Radius.sm),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(16.dp))

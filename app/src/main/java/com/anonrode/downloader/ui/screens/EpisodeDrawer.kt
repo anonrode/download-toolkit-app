@@ -46,8 +46,8 @@ fun EpisodeDrawer(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 36.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0x33FFFFFF))
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(OverlayLight)
             )
         }
     ) {
@@ -126,9 +126,9 @@ fun EpisodeDrawer(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .clip(RoundedCornerShape(Radius.md))
                                     .background(if (ep.isSelected) SurfaceElevated else SurfaceDark)
-                                    .border(1.dp, if (ep.isSelected) SealPrimary else CardBorder, RoundedCornerShape(14.dp))
+                                    .border(1.dp, if (ep.isSelected) SealPrimary else CardBorder, RoundedCornerShape(Radius.md))
                                     .clickable { viewModel.toggleEpisodeSelection(ep) }
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -137,7 +137,7 @@ fun EpisodeDrawer(
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .clip(RoundedCornerShape(Radius.sm))
                                         .background(if (ep.isSelected) SealPrimary else SurfaceElevated),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -169,7 +169,7 @@ fun EpisodeDrawer(
                                 if (isDownloaded) {
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(Radius.sm))
                                             .background(EmeraldSuccess.copy(alpha = 0.15f))
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
@@ -206,7 +206,7 @@ fun EpisodeDrawer(
                                 .fillMaxWidth()
                                 .height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(Radius.md)
                         ) {
                             Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
@@ -228,9 +228,9 @@ fun BatchChip(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .padding(end = 8.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Radius.sm))
             .background(SurfaceDark)
-            .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+            .border(1.dp, CardBorder, RoundedCornerShape(Radius.sm))
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
