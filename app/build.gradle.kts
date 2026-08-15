@@ -51,8 +51,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 minify is OFF deliberately. With it on, the app crashed on
+            // launch even after serialization keep rules were added -- R8 was
+            // stripping something we could not pin down without a device, and
+            // chasing keep rules blind burned multiple broken installs. A larger
+            // APK that runs beats a smaller one that crashes. Re-enable only once
+            // a local/device build can actually verify the shrunk build launches.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

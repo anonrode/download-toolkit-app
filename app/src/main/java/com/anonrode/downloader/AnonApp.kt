@@ -2,6 +2,7 @@ package com.anonrode.downloader
 
 import android.app.Application
 import android.content.Context
+import android.os.Environment
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -16,11 +17,16 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 class AnonApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // Write any uncaught crash to a file in Downloads BEFORE anything else,
+        // so a launch crash we can't reproduce without a PC leaves a readable
+        // stack trace on the device. Open Download/anon_crash.txt after a crash.
+        installCrashLogger()
         // Initialise yt-dlp + ffmpeg once, off the main thread: the first run
         // unpacks a bundled python runtime and can take seconds, which would ANR
         // if done in onCreate synchronously. The download path awaits
@@ -68,6 +74,29 @@ class AnonApp : Application(), ImageLoaderFactory {
             // Offline or update-server hiccup: keep the existing binary, retry
             // next launch (timestamp not written).
             Log.w("AnonApp", "yt-dlp update failed, keeping bundled binary", e)
+        }
+    }
+
+    /**
+     * Global last-resort crash logger. Writes the full stack trace of any
+     * uncaught exception to Download/anon_crash.txt, then delegates to the
+     * previous handler so Android still shows its dialog. This is how we get a
+     * real cause off the device without a PC/adb: after a crash, open that file.
+     */
+    private fun installCrashLogger() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val dir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS)
+                val f = File(dir, "anon_crash.txt")
+                f.appendText(
+                    "\n===== crash on thread ${thread.name} =====\n" +
+                    Log.getStackTraceString(throwable) + "\n")
+            } catch (_: Throwable) {
+                // If we can't even write the log, fall through to the OS handler.
+            }
+            previous?.uncaughtException(thread, throwable)
         }
     }
 
