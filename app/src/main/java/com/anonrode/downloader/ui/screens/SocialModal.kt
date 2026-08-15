@@ -65,12 +65,12 @@ fun SocialModal(
                         .background(SurfaceElevated),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(platformIcon, contentDescription = null, tint = SealAccent, modifier = Modifier.size(20.dp))
+                    Icon(platformIcon, contentDescription = null, tint = SealPrimary, modifier = Modifier.size(20.dp))
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text("Quick Download", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(platformName, color = SealAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(platformName, color = SealPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onDismiss) {
@@ -118,7 +118,7 @@ fun SocialModal(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) SurfaceElevated else SurfaceDark)
-                            .border(1.dp, if (isSelected) SealAccent else CardBorder, RoundedCornerShape(12.dp))
+                            .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(12.dp))
                             .clickable { selectedQuality = key }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -126,7 +126,7 @@ fun SocialModal(
                         RadioButton(
                             selected = isSelected,
                             onClick = { selectedQuality = key },
-                            colors = RadioButtonDefaults.colors(selectedColor = SealAccent, unselectedColor = TextMuted)
+                            colors = RadioButtonDefaults.colors(selectedColor = SealPrimary, unselectedColor = TextMuted)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(

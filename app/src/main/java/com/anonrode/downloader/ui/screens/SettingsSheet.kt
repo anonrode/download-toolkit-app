@@ -97,7 +97,7 @@ fun SettingsSheet(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricCyan,
+                        focusedBorderColor = SealPrimary,
                         unfocusedBorderColor = CardBorder,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
@@ -126,7 +126,7 @@ fun SettingsSheet(
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricCyan,
+                        focusedBorderColor = SealPrimary,
                         unfocusedBorderColor = CardBorder,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White
@@ -144,12 +144,12 @@ fun SettingsSheet(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (uiState.isVpsOnline) EmeraldGreen.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f))
+                            .background(if (uiState.isVpsOnline) EmeraldSuccess.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = if (uiState.isVpsOnline) "● Connected (${uiState.vpsLatencyMs}ms)" else "○ Server Offline",
-                            color = if (uiState.isVpsOnline) EmeraldGreen else Color.Red,
+                            color = if (uiState.isVpsOnline) EmeraldSuccess else Color.Red,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -159,7 +159,7 @@ fun SettingsSheet(
 
                     Button(
                         onClick = { viewModel.checkServerPing() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x14FFFFFF), contentColor = ElectricCyan),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x14FFFFFF), contentColor = SealPrimary),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     ) {
@@ -178,7 +178,7 @@ fun SettingsSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Aria2c Sockets per File", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     Spacer(modifier = Modifier.weight(1f))
-                    Text("$sockets Sockets", color = ElectricCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("$sockets Sockets", color = SealPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
                 Text("16 sockets matches Termux aria2c performance", color = TextMuted, fontSize = 11.sp)
                 Slider(
@@ -186,7 +186,7 @@ fun SettingsSheet(
                     onValueChange = { sockets = it.toInt() },
                     valueRange = 1f..32f,
                     steps = 30,
-                    colors = SliderDefaults.colors(thumbColor = ElectricCyan, activeTrackColor = ElectricCyan)
+                    colors = SliderDefaults.colors(thumbColor = SealPrimary, activeTrackColor = SealPrimary)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -195,14 +195,14 @@ fun SettingsSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Max Concurrent Downloads", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     Spacer(modifier = Modifier.weight(1f))
-                    Text("$concurrent Active", color = ElectricCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("$concurrent Active", color = SealPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
                 Slider(
                     value = concurrent.toFloat(),
                     onValueChange = { concurrent = it.toInt() },
                     valueRange = 1f..5f,
                     steps = 3,
-                    colors = SliderDefaults.colors(thumbColor = ElectricCyan, activeTrackColor = ElectricCyan)
+                    colors = SliderDefaults.colors(thumbColor = SealPrimary, activeTrackColor = SealPrimary)
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -262,7 +262,7 @@ fun SettingsSheet(
                     Switch(
                         checked = autoOrganize,
                         onCheckedChange = { autoOrganize = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = PureBlack, checkedTrackColor = ElectricCyan)
+                        colors = SwitchDefaults.colors(checkedThumbColor = PureBlack, checkedTrackColor = SealPrimary)
                     )
                 }
             }
@@ -284,7 +284,7 @@ fun SettingsSheet(
                     Switch(
                         checked = instantSocial,
                         onCheckedChange = { instantSocial = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = PureBlack, checkedTrackColor = ElectricCyan)
+                        colors = SwitchDefaults.colors(checkedThumbColor = PureBlack, checkedTrackColor = SealPrimary)
                     )
                 }
 
@@ -334,7 +334,7 @@ fun SettingsSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan, contentColor = PureBlack),
+                colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Save & Apply", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -357,7 +357,7 @@ fun SettingsGroupCard(title: String, icon: androidx.compose.ui.graphics.vector.I
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = ElectricCyan, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = SealPrimary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }

@@ -114,7 +114,7 @@ fun EpisodeDrawer(
             ) {
                 if (uiState.isEpisodesLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SealAccent, strokeWidth = 3.dp)
+                        CircularProgressIndicator(color = SealPrimary, strokeWidth = 3.dp)
                     }
                 } else {
                     LazyColumn(
@@ -128,7 +128,7 @@ fun EpisodeDrawer(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(if (ep.isSelected) SurfaceElevated else SurfaceDark)
-                                    .border(1.dp, if (ep.isSelected) SealAccent else CardBorder, RoundedCornerShape(14.dp))
+                                    .border(1.dp, if (ep.isSelected) SealPrimary else CardBorder, RoundedCornerShape(14.dp))
                                     .clickable { viewModel.toggleEpisodeSelection(ep) }
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -160,7 +160,7 @@ fun EpisodeDrawer(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "720p HD",
+                                        text = "${show.site.uppercase()} • Direct Stream",
                                         color = TextMuted,
                                         fontSize = 11.sp
                                     )
@@ -182,7 +182,7 @@ fun EpisodeDrawer(
                                         Icon(
                                             if (ep.isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
                                             contentDescription = "Download",
-                                            tint = if (ep.isSelected) SealAccent else TextMuted,
+                                            tint = if (ep.isSelected) SealPrimary else TextMuted,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }

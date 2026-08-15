@@ -1,12 +1,19 @@
 package com.anonrode.downloader.ui.screens
 
-import androidx.compose.foundation.*
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -18,7 +25,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,7 +37,6 @@ import com.anonrode.downloader.data.models.TaskStatus
 import com.anonrode.downloader.ui.theme.*
 import com.anonrode.downloader.viewmodel.MainViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
@@ -40,81 +48,43 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val tasks by viewModel.engine.tasks.collectAsState()
     val clipboardManager = LocalClipboardManager.current
-    var showSuspiciousDialog by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    val filterOptions = listOf(
-        "all" to "All Sites",
-        "nkiri" to "Nkiri",
-        "dramakey" to "DramaKey",
-        "pluto" to "Pluto",
-        "9jarocks" to "9jaRocks",
-        "viki" to "Viki"
-    )
-
-    fun handleInput(text: String) {
-        if (viewModel.apiClient.isDirectUrl(text)) {
-            if (viewModel.engine.instantSocialDownload) {
-                viewModel.engine.enqueue("Social", 1, "Video", text)
-            } else {
-                onOpenSocialModal(text)
-            }
-        } else if (viewModel.isSuspicious(text)) {
-            showSuspiciousDialog = true
-        } else {
-            viewModel.performSearch()
-        }
-    }
+    val activeCount = tasks.count { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
 
     Scaffold(
-        containerColor = DarkBackground
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // 1. Top Header (Seal Style)
+        containerColor = DarkBackground,
+        topBar = {
+            // Premium Header Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, CardBorder, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "ANONRODE",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 17.sp,
-                    letterSpacing = 1.2.sp,
-                    color = Color.White
-                )
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SurfaceElevated)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = String.format("%.1f GB Free", uiState.freeStorageGb),
+                        text = "Anon",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        text = "High-Performance Media Downloader",
+                        color = TextMuted,
                         fontSize = 11.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
+                // Subtitles Hub Icon
                 IconButton(
                     onClick = onOpenSubtitles,
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .size(40.dp)
+                        .clip(CircleShape)
                         .background(SurfaceElevated)
                 ) {
                     Icon(Icons.Rounded.Subtitles, contentDescription = "Subtitles", tint = TextSecondary, modifier = Modifier.size(18.dp))
@@ -122,55 +92,87 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SurfaceElevated)
-                ) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "Settings", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                val activeCount = tasks.count { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.QUEUED }
+                // Downloads Badge Button
                 IconButton(
                     onClick = onOpenDownloads,
                     modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (activeCount > 0) SealAccent.copy(alpha = 0.15f) else SurfaceElevated)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (activeCount > 0) SealPrimary else SurfaceElevated)
                 ) {
-                    Icon(
-                        Icons.Rounded.Download,
-                        contentDescription = "Downloads",
-                        tint = if (activeCount > 0) SealAccent else TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.Download,
+                            contentDescription = "Downloads",
+                            tint = if (activeCount > 0) PureBlack else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Settings Button
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceElevated)
+                ) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = TextSecondary, modifier = Modifier.size(18.dp))
                 }
             }
-
-            // 2. Universal Search Capsule
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // 1. Universal Search / Link Capsule
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, CardBorder, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(SurfaceCard)
+                    .border(1.dp, CardBorder, RoundedCornerShape(20.dp))
                     .padding(horizontal = 14.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = TextMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
 
                 TextField(
                     value = uiState.query,
                     onValueChange = { viewModel.onQueryChanged(it) },
-                    placeholder = { Text("Search drama or paste link...", color = TextMuted, fontSize = 13.sp) },
+                    placeholder = {
+                        Text(
+                            "Search drama or paste video link...",
+                            color = TextMuted,
+                            fontSize = 13.sp
+                        )
+                    },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            keyboardController?.hide()
+                            if (viewModel.apiClient.isDirectUrl(uiState.query)) {
+                                onOpenSocialModal(uiState.query.trim())
+                            } else {
+                                viewModel.performSearch()
+                            }
+                        }
+                    ),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
@@ -181,43 +183,67 @@ fun HomeScreen(
                     )
                 )
 
-                IconButton(
-                    onClick = {
-                        val clip = clipboardManager.getText()?.text
-                        if (!clip.isNullOrBlank()) {
-                            viewModel.onQueryChanged(clip)
-                            handleInput(clip)
-                        }
+                if (uiState.query.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.onQueryChanged("") },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
                     }
-                ) {
-                    Icon(Icons.Rounded.ContentPaste, contentDescription = "Paste", tint = TextMuted, modifier = Modifier.size(18.dp))
+                } else {
+                    // Quick Paste from Clipboard
+                    IconButton(
+                        onClick = {
+                            val clip = clipboardManager.getText()?.text ?: ""
+                            if (clip.isNotBlank()) {
+                                viewModel.onQueryChanged(clip)
+                                if (viewModel.apiClient.isDirectUrl(clip)) {
+                                    onOpenSocialModal(clip.trim())
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Rounded.ContentPaste, contentDescription = "Paste", tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
                 }
 
-                IconButton(
-                    onClick = { handleInput(uiState.query) },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(SealPrimary)
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Search / Go Button
+                Button(
+                    onClick = {
+                        keyboardController?.hide()
+                        if (viewModel.apiClient.isDirectUrl(uiState.query)) {
+                            onOpenSocialModal(uiState.query.trim())
+                        } else {
+                            viewModel.performSearch()
+                        }
+                    },
+                    modifier = Modifier.height(36.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {
-                    Icon(Icons.Rounded.ArrowDownward, contentDescription = "Search", tint = PureBlack, modifier = Modifier.size(18.dp))
+                    Text("Search", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
-            // 3. Filter Chips Carousel
+            // 2. Filter Pills
+            val filters = listOf("all" to "All", "nkiri" to "NKiri", "dramakey" to "DramaKey", "pluto" to "Pluto", "9jarocks" to "9jaRocks", "viki" to "Viki")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                filterOptions.forEach { (key, label) ->
+                filters.forEach { (key, label) ->
                     val isSelected = uiState.selectedFilter == key
                     Box(
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) SealPrimary else SurfaceDark)
+                            .background(if (isSelected) SealPrimary else SurfaceCard)
                             .border(1.dp, if (isSelected) SealPrimary else CardBorder, RoundedCornerShape(12.dp))
                             .clickable { viewModel.onFilterSelected(key) }
                             .padding(horizontal = 14.dp, vertical = 7.dp)
@@ -232,7 +258,7 @@ fun HomeScreen(
                 }
             }
 
-            // 4. Drama Posters Grid
+            // 3. Main Content Area
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -240,58 +266,53 @@ fun HomeScreen(
             ) {
                 when {
                     uiState.isSearching -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator(color = SealAccent, strokeWidth = 3.dp)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Scanning sources...", color = TextMuted, fontSize = 13.sp)
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = SealPrimary, strokeWidth = 3.dp, modifier = Modifier.size(36.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text("Searching dramas & resolving index...", color = TextMuted, fontSize = 12.sp)
+                            }
                         }
                     }
                     uiState.searchError != null -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = Color.Red, modifier = Modifier.size(36.dp))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(uiState.searchError ?: "Error", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = { viewModel.performSearch() },
-                                colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
-                                shape = RoundedCornerShape(12.dp)
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(32.dp)
                             ) {
-                                Text("Retry Search")
+                                Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = TextMuted, modifier = Modifier.size(44.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(uiState.searchError ?: "Search failed", color = TextSecondary, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Button(
+                                    onClick = onOpenSettings,
+                                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Open Settings", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                     uiState.searchResults.isEmpty() -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Rounded.MovieFilter, contentDescription = null, tint = Color(0x22FFFFFF), modifier = Modifier.size(54.dp))
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Search drama or paste a video link", color = TextMuted, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("NKiri • DramaKey • Pluto • 9jaRocks • Viki", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Rounded.MovieFilter, contentDescription = null, tint = Color(0x1FFFFFFF), modifier = Modifier.size(56.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Search drama series or paste a link", color = TextMuted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("NKiri • DramaKey • Pluto • 9jaRocks • Viki", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
                         }
                     }
                     else -> {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(uiState.searchResults, key = { it.url }) { show ->
+                            items(uiState.searchResults, key = { it.url.ifBlank { it.title } }) { show ->
                                 DramaPosterCard(show = show, onClick = { viewModel.openEpisodeDrawer(show) })
                             }
                         }
@@ -299,8 +320,8 @@ fun HomeScreen(
                 }
             }
 
-            // 5. Mini Bottom Download Bar (Seal style)
-            val active = tasks.filter { it.status == TaskStatus.DOWNLOADING }
+            // 4. Floating Mini Download Bar (Seal Style)
+            val active = tasks.filter { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
             if (active.isNotEmpty()) {
                 val current = active.first()
                 Box(
@@ -311,7 +332,7 @@ fun HomeScreen(
                         .background(SurfaceElevated)
                         .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
                         .clickable { onOpenDownloads() }
-                        .padding(12.dp)
+                        .padding(14.dp)
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -326,20 +347,20 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "● ${current.formattedSpeed}",
-                                color = SealAccent,
+                                text = if (current.formattedSpeed.isNotBlank()) "● ${current.formattedSpeed}" else "● Connecting...",
+                                color = SealPrimary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { current.progressPercent },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = SealAccent,
+                            color = SealPrimary,
                             trackColor = Color(0x1AFFFFFF)
                         )
                     }
@@ -347,42 +368,16 @@ fun HomeScreen(
             }
         }
     }
-
-    if (showSuspiciousDialog) {
-        AlertDialog(
-            onDismissRequest = { showSuspiciousDialog = false },
-            containerColor = SurfaceDark,
-            title = { Text("Confirm Search", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-            text = { Text("\"${uiState.query}\" looks like random text. Do you want to search anyway?", color = TextSecondary, fontSize = 13.sp) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSuspiciousDialog = false
-                        viewModel.performSearch()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SealPrimary, contentColor = PureBlack),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Search Anyway", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSuspiciousDialog = false }) {
-                    Text("Cancel", color = TextMuted)
-                }
-            }
-        )
-    }
 }
 
 @Composable
 fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .aspectRatio(0.72f)
-            .clip(RoundedCornerShape(18.dp))
-            .background(SurfaceDark)
-            .border(1.dp, CardBorder, RoundedCornerShape(18.dp))
+            .aspectRatio(0.70f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceCard)
+            .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
             .clickable { onClick() }
     ) {
         if (!show.poster.isNullOrBlank()) {
@@ -399,7 +394,7 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
                     .background(SurfaceElevated),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.Movie, contentDescription = null, tint = Color(0x22FFFFFF), modifier = Modifier.size(40.dp))
+                Icon(Icons.Rounded.Movie, contentDescription = null, tint = Color(0x22FFFFFF), modifier = Modifier.size(36.dp))
             }
         }
 
@@ -409,8 +404,8 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color(0x66000000), Color(0xF0000000)),
-                        startY = 80f
+                        colors = listOf(Color.Transparent, Color(0x66000000), Color(0xFA000000)),
+                        startY = 90f
                     )
                 )
         )
@@ -423,7 +418,7 @@ fun DramaPosterCard(show: ShowItem, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xD9000000))
                 .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
-                .padding(horizontal = 6.dp, vertical = 3.dp)
+                .padding(horizontal = 7.dp, vertical = 3.dp)
         ) {
             Text(
                 text = show.site.uppercase(),

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -31,6 +32,11 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf("home") }
                 var showSettings by remember { mutableStateOf(false) }
                 val socialUrl by activeSharedUrl
+
+                // Handle Android Hardware Back Button / Back Gesture
+                BackHandler(enabled = currentScreen != "home") {
+                    currentScreen = "home"
+                }
 
                 when (currentScreen) {
                     "home" -> {

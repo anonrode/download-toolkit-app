@@ -95,7 +95,7 @@ fun SubtitleHubScreen(
                     )
                 )
                 IconButton(onClick = { searchSubs() }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = SealAccent)
+                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = SealPrimary)
                 }
             }
 
@@ -105,7 +105,7 @@ fun SubtitleHubScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SealAccent, strokeWidth = 3.dp)
+                        CircularProgressIndicator(color = SealPrimary, strokeWidth = 3.dp)
                     }
                 } else if (subs.isEmpty()) {
                     Column(
@@ -154,13 +154,13 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
             modifier = Modifier
                 .size(38.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (sub.type == "pack") EmeraldSuccess.copy(alpha = 0.15f) else SealAccent.copy(alpha = 0.15f)),
+                .background(if (sub.type == "pack") EmeraldSuccess.copy(alpha = 0.15f) else SealPrimary.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 if (sub.type == "pack") Icons.Rounded.FolderZip else Icons.Rounded.Subtitles,
                 contentDescription = null,
-                tint = if (sub.type == "pack") EmeraldSuccess else SealAccent,
+                tint = if (sub.type == "pack") EmeraldSuccess else SealPrimary,
                 modifier = Modifier.size(20.dp)
             )
         }
