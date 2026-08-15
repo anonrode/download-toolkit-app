@@ -2,7 +2,6 @@ package com.anonrode.downloader.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -96,7 +95,7 @@ fun SubtitleHubScreen(
                     )
                 )
                 IconButton(onClick = { searchSubs() }) {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = ElectricCyan)
+                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = SealAccent)
                 }
             }
 
@@ -106,7 +105,7 @@ fun SubtitleHubScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = ElectricCyan, strokeWidth = 3.dp)
+                        CircularProgressIndicator(color = SealAccent, strokeWidth = 3.dp)
                     }
                 } else if (subs.isEmpty()) {
                     Column(
@@ -123,7 +122,7 @@ fun SubtitleHubScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(subs) { sub ->
+                        items(subs, key = { it.id.ifBlank { it.download_url } }) { sub ->
                             SubtitleCard(sub = sub, onDownload = {
                                 viewModel.engine.enqueue(
                                     showName = subQuery.ifBlank { "Subtitles" },
@@ -155,13 +154,13 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
             modifier = Modifier
                 .size(38.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (sub.type == "pack") EmeraldGreen.copy(alpha = 0.15f) else ElectricCyan.copy(alpha = 0.15f)),
+                .background(if (sub.type == "pack") EmeraldSuccess.copy(alpha = 0.15f) else SealAccent.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 if (sub.type == "pack") Icons.Rounded.FolderZip else Icons.Rounded.Subtitles,
                 contentDescription = null,
-                tint = if (sub.type == "pack") EmeraldGreen else ElectricCyan,
+                tint = if (sub.type == "pack") EmeraldSuccess else SealAccent,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -187,7 +186,7 @@ fun SubtitleCard(sub: SubtitleItem, onDownload: () -> Unit) {
 
         Button(
             onClick = onDownload,
-            colors = ButtonDefaults.buttonColors(containerColor = ElectricCyan.copy(alpha = 0.15f), contentColor = ElectricCyan),
+            colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated, contentColor = SealPrimary),
             shape = RoundedCornerShape(10.dp),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
         ) {

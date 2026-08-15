@@ -104,7 +104,7 @@ fun EpisodeDrawer(
                 }
             }
 
-            Divider(color = CardBorder, thickness = 1.dp)
+            HorizontalDivider(color = CardBorder, thickness = 1.dp)
 
             // Episode List
             Box(
