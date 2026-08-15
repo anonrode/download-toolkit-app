@@ -78,6 +78,7 @@ data class DownloadTask(
     val originalUrl: String,
     val resolvedUrl: String? = null,
     val headers: Map<String, String> = emptyMap(),
+    val backend: String = "aria2c",
     val targetFilePath: String,
     val tempFilePath: String,
     val totalBytes: Long = 0L,

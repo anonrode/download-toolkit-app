@@ -147,7 +147,8 @@ fun SocialModal(
                         showName = "Social",
                         episodeNumber = 1,
                         episodeTitle = if (isAudio) "$platformName Audio" else "$platformName Video",
-                        originalUrl = url
+                        originalUrl = url,
+                        isDirect = true
                     )
                     onDismiss()
                 },

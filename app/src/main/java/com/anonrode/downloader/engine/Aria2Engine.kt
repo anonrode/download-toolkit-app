@@ -91,7 +91,12 @@ class Aria2Engine private constructor() {
         showName: String,
         episodeNumber: Int,
         episodeTitle: String,
-        originalUrl: String
+        originalUrl: String,
+        // Social/direct links (share sheet, SocialModal) are already the media
+        // URL and must NOT go through the drama resolver. Passing isDirect pins
+        // the resolved URL to the source and forces the yt-dlp backend, so
+        // startTask skips resolve and routes straight to segment+mux.
+        isDirect: Boolean = false
     ): DownloadTask {
         val showDir = getAnonStorageDir(showName)
         val sanitizedShow = showName.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
@@ -107,6 +112,8 @@ class Aria2Engine private constructor() {
             episodeNumber = episodeNumber,
             episodeTitle = episodeTitle,
             originalUrl = originalUrl,
+            resolvedUrl = if (isDirect) originalUrl else null,
+            backend = if (isDirect) "yt-dlp" else "aria2c",
             targetFilePath = targetPath,
             tempFilePath = tempPath,
             status = TaskStatus.QUEUED,
@@ -122,6 +129,9 @@ class Aria2Engine private constructor() {
         if (repo.find(taskId) == null) return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
+        // A yt-dlp task runs as a native subprocess that the coroutine cancel
+        // above won't stop; kill it explicitly (no-op for native-engine tasks).
+        YoutubeDlDownloader.cancel(taskId)
         repo.update(taskId) { it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0) }
         repo.persist()
         processQueue()
@@ -140,6 +150,7 @@ class Aria2Engine private constructor() {
         val task = repo.find(taskId) ?: return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
+        YoutubeDlDownloader.cancel(taskId)
 
         File(task.tempFilePath).delete()
         for (i in 0..32) {
@@ -181,16 +192,55 @@ class Aria2Engine private constructor() {
 
                 var headers = task.headers
                 var resolvedUrl = task.resolvedUrl
+                var backend = task.backend
                 if (resolvedUrl.isNullOrBlank()) {
                     val recipe = client.resolveEpisode(task.originalUrl, defaultQuality)
                     resolvedUrl = recipe.url
                     headers = recipe.headers
-                    repo.update(taskId) { it.copy(resolvedUrl = recipe.url, headers = recipe.headers) }
+                    backend = recipe.backend
+                    repo.update(taskId) {
+                        it.copy(resolvedUrl = recipe.url, headers = recipe.headers, backend = recipe.backend)
+                    }
                 }
 
                 repo.update(taskId) { it.copy(status = TaskStatus.DOWNLOADING) }
 
                 val directUrl = resolvedUrl ?: throw Exception("Failed to resolve link")
+
+                // HLS / social links can't be pulled as a plain byte stream --
+                // an .m3u8 is a playlist, not the media. Route those to yt-dlp
+                // (bundled) which fetches the segments and muxes a real mp4; keep
+                // the fast native segment engine below for plain files.
+                if (YoutubeDlDownloader.handles(backend, directUrl)) {
+                    repo.update(taskId) {
+                        it.copy(totalBytes = YoutubeDlDownloader.scaleTotal(), downloadedBytes = 0L)
+                    }
+                    var lastPctTime = System.currentTimeMillis()
+                    var lastPct = 0f
+                    YoutubeDlDownloader.download(taskId, directUrl, task.targetFilePath, headers) { pct ->
+                        val now = System.currentTimeMillis()
+                        val dt = now - lastPctTime
+                        if (dt >= 500 || pct >= 100f) {
+                            // Synthetic speed off the % delta and the scale, so the
+                            // UI shows motion without real byte counts from yt-dlp.
+                            val speed = ((pct - lastPct) / 100f *
+                                YoutubeDlDownloader.scaleTotal()) / (dt / 1000.0).coerceAtLeast(0.001)
+                            lastPct = pct; lastPctTime = now
+                            repo.update(taskId) {
+                                it.copy(downloadedBytes = YoutubeDlDownloader.scaleDownloaded(pct),
+                                        speedBytesPerSec = speed)
+                            }
+                        }
+                    }
+                    if (isActive) {
+                        repo.update(taskId) {
+                            it.copy(status = TaskStatus.COMPLETED,
+                                    downloadedBytes = YoutubeDlDownloader.scaleTotal(),
+                                    speedBytesPerSec = 0.0)
+                        }
+                    }
+                    return@launch
+                }
 
                 // Header applier shared by probe + every segment/single request,
                 // so the User-Agent fallback lives in one place.

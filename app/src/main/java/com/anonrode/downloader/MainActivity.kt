@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
             if (!cleanUrl.isNullOrBlank()) {
                 if (viewModel.engine.instantSocialDownload) {
                     val platform = getPlatformLabel(cleanUrl)
-                    viewModel.engine.enqueue("Social", 1, "$platform Video", cleanUrl)
+                    viewModel.engine.enqueue("Social", 1, "$platform Video", cleanUrl, isDirect = true)
                     Toast.makeText(this, "Downloading from $platform...", Toast.LENGTH_SHORT).show()
                 } else {
                     activeSharedUrl.value = cleanUrl
