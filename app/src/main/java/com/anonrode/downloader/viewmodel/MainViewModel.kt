@@ -44,6 +44,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadSettings()
         // Wire the shared apiClient into the engine so resolves use the user's key
         engine.apiClient = apiClient
+        // Restore any downloads from a previous run (app-private storage).
+        engine.initPersistence(application.filesDir)
         refreshStorage()
         checkServerPing()
     }

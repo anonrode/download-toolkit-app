@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URLEncoder
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
@@ -60,6 +61,14 @@ class VpsApiClient(
         return builder.build()
     }
 
+    // Percent-encode a query value. Without this a title with a space
+    // ("reply 1988") or a resolve URL carrying its own ?/&/= silently corrupts
+    // the request line -- the #1 reason search and resolve "randomly" failed.
+    // URLEncoder emits '+' for spaces (form encoding); servers accept it in the
+    // query string, but normalize to %20 to be safe with stricter parsers.
+    private fun enc(value: String): String =
+        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
     fun isDirectUrl(input: String): Boolean {
         val clean = input.trim().lowercase()
         return clean.startsWith("http://") || clean.startsWith("https://") ||
@@ -90,9 +99,9 @@ class VpsApiClient(
         if (cleanQ.isEmpty()) return@withContext emptyList()
         if (apiKey.isBlank()) throw Exception("API Key required. Please enter your key in Settings.")
 
-        val urlBuilder = StringBuilder("${serverUrl.trimEnd('/')}/api/v1/search?q=${cleanQ}&key=${apiKey.trim()}")
+        val urlBuilder = StringBuilder("${serverUrl.trimEnd('/')}/api/v1/search?q=${enc(cleanQ)}&key=${enc(apiKey.trim())}")
         if (!siteFilter.isNullOrBlank() && siteFilter != "all") {
-            urlBuilder.append("&sites=$siteFilter")
+            urlBuilder.append("&sites=${enc(siteFilter)}")
         }
 
         val request = Request.Builder()
@@ -140,7 +149,7 @@ class VpsApiClient(
     suspend fun listEpisodes(showUrl: String): List<EpisodeItem> = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw Exception("API Key required. Please enter your key in Settings.")
         val request = Request.Builder()
-            .url("${serverUrl.trimEnd('/')}/api/v1/episodes?url=$showUrl&key=${apiKey.trim()}")
+            .url("${serverUrl.trimEnd('/')}/api/v1/episodes?url=${enc(showUrl)}&key=${enc(apiKey.trim())}")
             .headers(buildHeaders())
             .get()
             .build()
@@ -181,10 +190,11 @@ class VpsApiClient(
         }
     }
 
-    suspend fun resolveEpisode(episodeUrl: String): DownloadRecipe = withContext(Dispatchers.IO) {
+    suspend fun resolveEpisode(episodeUrl: String, quality: String = "720p"): DownloadRecipe = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw Exception("API Key required. Please enter your key in Settings.")
+        val cleanQuality = quality.trim().lowercase()
         val request = Request.Builder()
-            .url("${serverUrl.trimEnd('/')}/api/v1/resolve?url=$episodeUrl&kind=resolve&key=${apiKey.trim()}")
+            .url("${serverUrl.trimEnd('/')}/api/v1/resolve?url=${enc(episodeUrl)}&quality=${enc(cleanQuality)}&kind=resolve&key=${enc(apiKey.trim())}")
             .headers(buildHeaders())
             .get()
             .build()
@@ -221,7 +231,7 @@ class VpsApiClient(
     suspend fun searchSubtitles(query: String): List<SubtitleItem> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
-                .url("${serverUrl.trimEnd('/')}/api/v1/subtitles?q=$query")
+                .url("${serverUrl.trimEnd('/')}/api/v1/subtitles?q=${enc(query)}")
                 .headers(buildHeaders())
                 .get()
                 .build()

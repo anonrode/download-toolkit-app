@@ -8,6 +8,8 @@ import com.anonrode.downloader.data.models.TaskStatus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -33,6 +35,12 @@ class Aria2Engine private constructor() {
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
     val tasks = _tasks.asStateFlow()
 
+    // Where the task list is persisted so downloads survive an app restart.
+    // Set once by MainViewModel (the engine is a context-less singleton), so a
+    // null file just means "not wired yet" and persistence is skipped.
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private var stateFile: File? = null
+
     // Shared reference — set by MainViewModel on init so every
     // resolve call uses the user's configured key + server URL.
     var apiClient: VpsApiClient? = null
@@ -45,6 +53,43 @@ class Aria2Engine private constructor() {
     var defaultQuality = "720p"
     var autoOrganizeByShow = true
     var instantSocialDownload = false
+
+    /**
+     * Wire in a persistence location and reload any tasks from a previous run.
+     * Called once from MainViewModel.init. Interrupted downloads (DOWNLOADING/
+     * RESOLVING when the app died) are demoted to PAUSED so the user can resume
+     * them rather than seeing a task frozen mid-flight with no live coroutine.
+     */
+    fun initPersistence(dir: File) {
+        if (stateFile != null) return
+        val f = File(dir, "download_tasks.json")
+        stateFile = f
+        try {
+            if (f.exists()) {
+                val restored = json.decodeFromString<List<DownloadTask>>(f.readText())
+                    .map {
+                        if (it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING) {
+                            it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0)
+                        } else it
+                    }
+                _tasks.value = restored
+            }
+        } catch (_: Exception) {
+            // Corrupt state file: start clean rather than crash on launch.
+            _tasks.value = emptyList()
+        }
+    }
+
+    /** Serialize the current task list. Cheap (a handful of tasks) and only
+     *  writes when a file has been wired, so it is a no-op in tests. */
+    private fun persist() {
+        val f = stateFile ?: return
+        scope.launch {
+            try {
+                f.writeText(json.encodeToString(_tasks.value))
+            } catch (_: Exception) {}
+        }
+    }
 
     private val okHttpClient: OkHttpClient by lazy {
         val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
@@ -123,13 +168,15 @@ class Aria2Engine private constructor() {
             originalUrl = originalUrl,
             targetFilePath = targetPath,
             tempFilePath = tempPath,
-            status = TaskStatus.QUEUED
+            status = TaskStatus.QUEUED,
+            createdAt = System.currentTimeMillis()
         )
 
         val updated = _tasks.value.toMutableList()
         updated.add(0, task)
         _tasks.value = updated
 
+        persist()
         processQueue()
         return task
     }
@@ -141,6 +188,7 @@ class Aria2Engine private constructor() {
         task.status = TaskStatus.PAUSED
         task.speedBytesPerSec = 0.0
         emitUpdate()
+        persist()
         processQueue()
     }
 
@@ -150,6 +198,7 @@ class Aria2Engine private constructor() {
             task.status = TaskStatus.QUEUED
             task.errorMessage = null
             emitUpdate()
+            persist()
             processQueue()
         }
     }
@@ -168,6 +217,7 @@ class Aria2Engine private constructor() {
         updated.removeAll { it.id == taskId }
         _tasks.value = updated
 
+        persist()
         processQueue()
     }
 
@@ -177,6 +227,7 @@ class Aria2Engine private constructor() {
         val updated = _tasks.value.toMutableList()
         updated.removeAll { it.id == task.id }
         _tasks.value = updated
+        persist()
     }
 
     /** Force a new list emission so Compose / Flow collectors see the change. */
@@ -204,7 +255,7 @@ class Aria2Engine private constructor() {
                     ?: throw Exception("API client not configured. Open Settings and enter your API Key.")
 
                 if (task.resolvedUrl.isNullOrBlank()) {
-                    val recipe = client.resolveEpisode(task.originalUrl)
+                    val recipe = client.resolveEpisode(task.originalUrl, defaultQuality)
                     task.resolvedUrl = recipe.url
                     task.headers = recipe.headers
                 }
@@ -219,11 +270,13 @@ class Aria2Engine private constructor() {
                     reqBuilder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 }
 
-                // 1. Probe to detect Content-Length & Accept-Ranges
+                // 1. Probe to detect Content-Length & Accept-Ranges. HEAD, not
+                //    GET -- the old builder defaulted to GET, so this opened the
+                //    full media stream just to read two headers, then threw it away.
                 var totalSize = 0L
                 var acceptsRanges = false
                 try {
-                    val headReq = reqBuilder.build()
+                    val headReq = reqBuilder.head().build()
                     val headRes = okHttpClient.newCall(headReq).execute()
                     val clHeader = headRes.header("Content-Length")
                     if (clHeader != null) totalSize = clHeader.toLongOrNull() ?: 0L
@@ -244,6 +297,7 @@ class Aria2Engine private constructor() {
                     task.totalBytes = totalSize
                     val chunkSize = (totalSize + segments - 1) / segments
                     val chunkFiles = mutableListOf<File>()
+                    val expectedLens = mutableListOf<Long>()
                     val workerJobs = mutableListOf<Job>()
 
                     for (i in 0 until segments) {
@@ -251,6 +305,7 @@ class Aria2Engine private constructor() {
                         val end = if (i == segments - 1) totalSize - 1 else ((i + 1) * chunkSize - 1)
                         val chunkFile = File("${task.tempFilePath}.part$i")
                         chunkFiles.add(chunkFile)
+                        expectedLens.add(end - start + 1)
 
                         val chunkJob = launch {
                             val chunkExisting = if (chunkFile.exists()) chunkFile.length() else 0L
@@ -273,18 +328,22 @@ class Aria2Engine private constructor() {
                                         while (input.read(buffer).also { read = it } != -1) {
                                             if (!isActive || task.status != TaskStatus.DOWNLOADING) break
                                             o.write(buffer, 0, read)
+                                            // All segment coroutines share lastTime/
+                                            // lastBytes, so the speed math has to be
+                                            // inside the same lock as the byte tally
+                                            // or concurrent writers produce garbage
+                                            // (even negative) readings.
                                             synchronized(task) {
                                                 task.downloadedBytes += read
-                                            }
-
-                                            val now = System.currentTimeMillis()
-                                            val diff = now - lastTime
-                                            if (diff >= 500) {
-                                                val bytesDiff = task.downloadedBytes - lastBytes
-                                                task.speedBytesPerSec = (bytesDiff.toDouble() / (diff.toDouble() / 1000.0))
-                                                lastBytes = task.downloadedBytes
-                                                lastTime = now
-                                                emitUpdate()
+                                                val now = System.currentTimeMillis()
+                                                val diff = now - lastTime
+                                                if (diff >= 500) {
+                                                    val bytesDiff = task.downloadedBytes - lastBytes
+                                                    task.speedBytesPerSec = bytesDiff.toDouble() / (diff.toDouble() / 1000.0)
+                                                    lastBytes = task.downloadedBytes
+                                                    lastTime = now
+                                                    emitUpdate()
+                                                }
                                             }
                                         }
                                     }
@@ -299,6 +358,21 @@ class Aria2Engine private constructor() {
 
                     // Merge all chunks sequentially into target file
                     if (isActive && task.status == TaskStatus.DOWNLOADING) {
+                        // Guard against silent corruption: a segment whose socket
+                        // dropped leaves a short .part file, but the old code merged
+                        // whatever was there and marked the task COMPLETED -- a
+                        // truncated video that plays until it cuts out. Verify every
+                        // chunk is exactly the length its byte-range demands before
+                        // trusting the merge.
+                        chunkFiles.forEachIndexed { i, chunk ->
+                            val actual = if (chunk.exists()) chunk.length() else 0L
+                            if (actual != expectedLens[i]) {
+                                throw Exception(
+                                    "Segment ${i + 1}/$segments incomplete " +
+                                    "($actual/${expectedLens[i]} bytes) - link may have expired")
+                            }
+                        }
+
                         val finalFile = File(task.targetFilePath)
                         if (finalFile.exists()) finalFile.delete()
 
@@ -315,6 +389,14 @@ class Aria2Engine private constructor() {
                                     chunk.delete()
                                 }
                             }
+                        }
+
+                        // Final sanity check: merged size must equal Content-Length.
+                        val mergedLen = finalFile.length()
+                        if (mergedLen != totalSize) {
+                            finalFile.delete()
+                            throw Exception(
+                                "Merged file size mismatch ($mergedLen/$totalSize bytes)")
                         }
 
                         task.status = TaskStatus.COMPLETED
@@ -371,6 +453,15 @@ class Aria2Engine private constructor() {
                     response.close()
 
                     if (isActive && task.status == TaskStatus.DOWNLOADING) {
+                        // Same corruption guard as the multi-segment path: if the
+                        // stream dropped mid-download, read() returns -1 and the
+                        // loop exits normally, so without this a half-file would be
+                        // renamed and marked COMPLETED. Only enforce when the server
+                        // told us the size (a chunked response reports -1).
+                        if (task.totalBytes > 0L && tempFile.length() != task.totalBytes) {
+                            throw Exception(
+                                "Incomplete download (${tempFile.length()}/${task.totalBytes} bytes) - connection dropped")
+                        }
                         val finalFile = File(task.targetFilePath)
                         if (finalFile.exists()) finalFile.delete()
                         tempFile.renameTo(finalFile)
@@ -389,6 +480,10 @@ class Aria2Engine private constructor() {
                 emitUpdate()
             } finally {
                 activeJobs.remove(task.id)
+                // Persist the settled state (COMPLETED/FAILED, or PAUSED via
+                // cancellation) so it survives a restart. Runs on every exit
+                // path, so no terminal transition can escape unpersisted.
+                persist()
                 processQueue()
             }
         }

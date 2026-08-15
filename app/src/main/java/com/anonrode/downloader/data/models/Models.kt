@@ -2,6 +2,7 @@ package com.anonrode.downloader.data.models
 
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.io.File
 
 @Serializable
@@ -63,10 +64,13 @@ data class DownloadRecipe(
     val source_url: String? = null
 )
 
+@Serializable
 enum class TaskStatus {
     QUEUED, RESOLVING, DOWNLOADING, PAUSED, COMPLETED, FAILED
 }
 
+@Serializable
+@Serializable
 data class DownloadTask(
     val id: String,
     val showName: String,
@@ -80,9 +84,9 @@ data class DownloadTask(
     var totalBytes: Long = 0L,
     var downloadedBytes: Long = 0L,
     var status: TaskStatus = TaskStatus.QUEUED,
-    var speedBytesPerSec: Double = 0.0,
+    @Transient var speedBytesPerSec: Double = 0.0,
     var errorMessage: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = 0L
 ) {
     val progressPercent: Float
         get() = if (totalBytes > 0L) (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
