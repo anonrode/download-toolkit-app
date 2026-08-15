@@ -42,6 +42,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         loadSettings()
+        // Wire the shared apiClient into the engine so resolves use the user's key
+        engine.apiClient = apiClient
         refreshStorage()
         checkServerPing()
     }
@@ -83,6 +85,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         engine.defaultQuality = quality
         engine.autoOrganizeByShow = autoOrg
         engine.instantSocialDownload = instantSoc
+
+        // Keep engine's apiClient reference in sync
+        engine.apiClient = apiClient
 
         _uiState.value = _uiState.value.copy(isKeyConfigured = apiClient.apiKey.isNotBlank())
 

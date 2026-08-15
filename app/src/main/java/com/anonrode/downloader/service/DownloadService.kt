@@ -19,6 +19,7 @@ class DownloadService : Service() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     private var wifiLock: WifiManager.WifiLock? = null
+    private val scannedFiles = mutableSetOf<String>()
 
     companion object {
         const val CHANNEL_ID = "anon_downloads_channel"
@@ -56,26 +57,58 @@ class DownloadService : Service() {
             Aria2Engine.instance.tasks.collect { tasks ->
                 val active = tasks.filter { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
                 val completed = tasks.filter { it.status == TaskStatus.COMPLETED }
+                val failed = tasks.filter { it.status == TaskStatus.FAILED }
 
-                // Scan completed files
+                // Scan completed files (only once per file)
                 completed.forEach { task ->
-                    MediaScannerConnection.scanFile(this@DownloadService, arrayOf(task.targetFilePath), null, null)
+                    if (task.targetFilePath !in scannedFiles) {
+                        scannedFiles.add(task.targetFilePath)
+                        MediaScannerConnection.scanFile(this@DownloadService, arrayOf(task.targetFilePath), null, null)
+                    }
                 }
 
-                if (active.isNotEmpty()) {
-                    val current = active.first()
-                    val progress = (current.progressPercent * 100).toInt()
-                    val speed = current.formattedSpeed
-                    val title = "${current.showName}: ${current.episodeTitle}"
-                    val text = if (speed.isNotBlank()) "Downloading • $speed • $progress%" else "Preparing download..."
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-                    val notif = buildNotification(title, text, progress, true)
-                    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    manager.notify(NOTIFICATION_ID, notif)
-                } else {
-                    val notif = buildNotification("Anon Downloader", "All downloads completed", 100, false)
-                    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                    manager.notify(NOTIFICATION_ID, notif)
+                when {
+                    active.isNotEmpty() -> {
+                        val current = active.first()
+                        val progress = (current.progressPercent * 100).toInt()
+                        val speed = current.formattedSpeed
+                        val title = "${current.showName}: ${current.episodeTitle}"
+                        val text = when {
+                            current.status == TaskStatus.RESOLVING -> "Resolving download link..."
+                            speed.isNotBlank() -> "Downloading \u2022 $speed \u2022 $progress%"
+                            else -> "Starting download..."
+                        }
+                        manager.notify(NOTIFICATION_ID, buildNotification(title, text, progress, true))
+                    }
+                    failed.isNotEmpty() && completed.isEmpty() -> {
+                        val failMsg = failed.first().errorMessage ?: "Download failed"
+                        manager.notify(NOTIFICATION_ID, buildNotification("Download Failed", failMsg, 0, false))
+                    }
+                    completed.isNotEmpty() -> {
+                        val count = completed.size
+                        val text = if (count == 1) "${completed.first().episodeTitle} saved" else "$count downloads completed"
+                        manager.notify(NOTIFICATION_ID, buildNotification("Downloads Complete", text, 100, false))
+                    }
+                    tasks.isEmpty() -> {
+                        // No tasks at all — dismiss notification and stop service
+                        manager.cancel(NOTIFICATION_ID)
+                        stopSelf()
+                    }
+                    else -> {
+                        // Queued or paused only
+                        val queued = tasks.count { it.status == TaskStatus.QUEUED }
+                        val paused = tasks.count { it.status == TaskStatus.PAUSED }
+                        val text = buildString {
+                            if (queued > 0) append("$queued queued")
+                            if (paused > 0) {
+                                if (isNotEmpty()) append(" \u2022 ")
+                                append("$paused paused")
+                            }
+                        }.ifEmpty { "Idle" }
+                        manager.notify(NOTIFICATION_ID, buildNotification("Anon Downloader", text, 0, false))
+                    }
                 }
             }
         }
@@ -88,7 +121,7 @@ class DownloadService : Service() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(if (isDownloading) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
             .setContentIntent(pendingIntent)
             .setOngoing(isDownloading)
             .setOnlyAlertOnce(true)
