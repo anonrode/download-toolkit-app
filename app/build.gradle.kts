@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.anonrode.downloader"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.anonrode.downloader"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 200
         versionName = "2.0.0"
 
