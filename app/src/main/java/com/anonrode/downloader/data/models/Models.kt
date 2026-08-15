@@ -77,15 +77,15 @@ data class DownloadTask(
     val episodeNumber: Int,
     val episodeTitle: String,
     val originalUrl: String,
-    var resolvedUrl: String? = null,
-    var headers: Map<String, String> = emptyMap(),
+    val resolvedUrl: String? = null,
+    val headers: Map<String, String> = emptyMap(),
     val targetFilePath: String,
     val tempFilePath: String,
-    var totalBytes: Long = 0L,
-    var downloadedBytes: Long = 0L,
-    var status: TaskStatus = TaskStatus.QUEUED,
-    @Transient var speedBytesPerSec: Double = 0.0,
-    var errorMessage: String? = null,
+    val totalBytes: Long = 0L,
+    val downloadedBytes: Long = 0L,
+    val status: TaskStatus = TaskStatus.QUEUED,
+    @Transient val speedBytesPerSec: Double = 0.0,
+    val errorMessage: String? = null,
     val createdAt: Long = 0L
 ) {
     val progressPercent: Float

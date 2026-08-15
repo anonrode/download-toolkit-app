@@ -8,6 +8,7 @@ import com.anonrode.downloader.data.models.TaskStatus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -19,6 +20,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
@@ -27,6 +29,9 @@ class Aria2Engine private constructor() {
 
     companion object {
         val instance: Aria2Engine by lazy { Aria2Engine() }
+        private const val DEFAULT_UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -172,9 +177,7 @@ class Aria2Engine private constructor() {
             createdAt = System.currentTimeMillis()
         )
 
-        val updated = _tasks.value.toMutableList()
-        updated.add(0, task)
-        _tasks.value = updated
+        _tasks.update { listOf(task) + it }
 
         persist()
         processQueue()
@@ -182,29 +185,25 @@ class Aria2Engine private constructor() {
     }
 
     fun pause(taskId: String) {
-        val task = _tasks.value.find { it.id == taskId } ?: return
+        if (taskOf(taskId) == null) return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
-        task.status = TaskStatus.PAUSED
-        task.speedBytesPerSec = 0.0
-        emitUpdate()
+        update(taskId) { it.copy(status = TaskStatus.PAUSED, speedBytesPerSec = 0.0) }
         persist()
         processQueue()
     }
 
     fun resume(taskId: String) {
-        val task = _tasks.value.find { it.id == taskId } ?: return
+        val task = taskOf(taskId) ?: return
         if (task.status == TaskStatus.PAUSED || task.status == TaskStatus.FAILED) {
-            task.status = TaskStatus.QUEUED
-            task.errorMessage = null
-            emitUpdate()
+            update(taskId) { it.copy(status = TaskStatus.QUEUED, errorMessage = null) }
             persist()
             processQueue()
         }
     }
 
     fun cancel(taskId: String) {
-        val task = _tasks.value.find { it.id == taskId } ?: return
+        val task = taskOf(taskId) ?: return
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
 
@@ -213,9 +212,7 @@ class Aria2Engine private constructor() {
             File("${task.tempFilePath}.part$i").delete()
         }
 
-        val updated = _tasks.value.toMutableList()
-        updated.removeAll { it.id == taskId }
-        _tasks.value = updated
+        _tasks.update { list -> list.filterNot { it.id == taskId } }
 
         persist()
         processQueue()
@@ -224,16 +221,26 @@ class Aria2Engine private constructor() {
     fun deleteCompleted(task: DownloadTask) {
         File(task.targetFilePath).delete()
         File(task.tempFilePath).delete()
-        val updated = _tasks.value.toMutableList()
-        updated.removeAll { it.id == task.id }
-        _tasks.value = updated
+        _tasks.update { list -> list.filterNot { it.id == task.id } }
         persist()
     }
 
-    /** Force a new list emission so Compose / Flow collectors see the change. */
-    private fun emitUpdate() {
-        _tasks.value = _tasks.value.toList()
+    /**
+     * Atomically replace a task with a modified copy. DownloadTask is immutable,
+     * so every state change goes through here: StateFlow.update swaps the list
+     * reference AND the changed item is a new object, so Compose's item-level
+     * equality actually sees the change. The old code mutated a shared `var`
+     * task in place and re-wrapped the same references, which compared equal and
+     * left the progress UI stale -- the root cause of the janky download bar.
+     */
+    private fun update(taskId: String, transform: (DownloadTask) -> DownloadTask) {
+        _tasks.update { list ->
+            list.map { if (it.id == taskId) transform(it) else it }
+        }
     }
+
+    /** Snapshot of a task by id (immutable), or null if it is gone. */
+    private fun taskOf(taskId: String): DownloadTask? = _tasks.value.find { it.id == taskId }
 
     private fun processQueue() {
         val running = _tasks.value.count { it.status == TaskStatus.DOWNLOADING || it.status == TaskStatus.RESOLVING }
@@ -245,44 +252,52 @@ class Aria2Engine private constructor() {
     }
 
     private fun startTask(task: DownloadTask) {
+        val taskId = task.id
         val job = scope.launch {
+            // Shared byte counter for the parallel segments. AtomicLong instead of
+            // synchronized(task): the task is now immutable, so there is no shared
+            // object to lock, and progress is a running total the workers bump.
+            val downloaded = AtomicLong(0L)
             try {
-                task.status = TaskStatus.RESOLVING
-                emitUpdate()
+                update(taskId) { it.copy(status = TaskStatus.RESOLVING) }
 
                 // Use the shared VpsApiClient that has the user's key
                 val client = apiClient
                     ?: throw Exception("API client not configured. Open Settings and enter your API Key.")
 
-                if (task.resolvedUrl.isNullOrBlank()) {
+                var headers = task.headers
+                var resolvedUrl = task.resolvedUrl
+                if (resolvedUrl.isNullOrBlank()) {
                     val recipe = client.resolveEpisode(task.originalUrl, defaultQuality)
-                    task.resolvedUrl = recipe.url
-                    task.headers = recipe.headers
+                    resolvedUrl = recipe.url
+                    headers = recipe.headers
+                    update(taskId) { it.copy(resolvedUrl = recipe.url, headers = recipe.headers) }
                 }
 
-                task.status = TaskStatus.DOWNLOADING
-                emitUpdate()
+                update(taskId) { it.copy(status = TaskStatus.DOWNLOADING) }
 
-                val directUrl = task.resolvedUrl ?: throw Exception("Failed to resolve link")
-                val reqBuilder = Request.Builder().url(directUrl)
-                task.headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
-                if (!task.headers.containsKey("User-Agent")) {
-                    reqBuilder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                val directUrl = resolvedUrl ?: throw Exception("Failed to resolve link")
+
+                // Header applier shared by probe + every segment/single request,
+                // so the User-Agent fallback lives in one place.
+                fun Request.Builder.applyHeaders(): Request.Builder {
+                    headers.forEach { (k, v) -> addHeader(k, v) }
+                    if (!headers.containsKey("User-Agent")) addHeader("User-Agent", DEFAULT_UA)
+                    return this
                 }
 
                 // 1. Probe to detect Content-Length & Accept-Ranges. HEAD, not
-                //    GET -- the old builder defaulted to GET, so this opened the
-                //    full media stream just to read two headers, then threw it away.
+                //    GET -- a GET here would open the whole media stream just to
+                //    read two headers, then throw it away.
                 var totalSize = 0L
                 var acceptsRanges = false
                 try {
-                    val headReq = reqBuilder.head().build()
-                    val headRes = okHttpClient.newCall(headReq).execute()
-                    val clHeader = headRes.header("Content-Length")
-                    if (clHeader != null) totalSize = clHeader.toLongOrNull() ?: 0L
-                    val arHeader = headRes.header("Accept-Ranges")
-                    if (arHeader != null && arHeader.equals("bytes", ignoreCase = true)) {
-                        acceptsRanges = true
+                    val headRes = okHttpClient.newCall(
+                        Request.Builder().url(directUrl).applyHeaders().head().build()
+                    ).execute()
+                    headRes.header("Content-Length")?.let { totalSize = it.toLongOrNull() ?: 0L }
+                    headRes.header("Accept-Ranges")?.let {
+                        if (it.equals("bytes", ignoreCase = true)) acceptsRanges = true
                     }
                     headRes.close()
                 } catch (_: Exception) {}
@@ -291,14 +306,34 @@ class Aria2Engine private constructor() {
                 var lastTime = System.currentTimeMillis()
                 var lastBytes = 0L
 
-                // 2. Multi-Segment Parallel Download (for files > 4MB with range support)
+                // Emit throttled progress (>=500ms) from the current byte total.
+                fun reportProgress() {
+                    val now = System.currentTimeMillis()
+                    val diff = now - lastTime
+                    if (diff >= 500) {
+                        val soFar = downloaded.get()
+                        val speed = (soFar - lastBytes).toDouble() / (diff / 1000.0)
+                        lastBytes = soFar
+                        lastTime = now
+                        update(taskId) { it.copy(downloadedBytes = soFar, speedBytesPerSec = speed) }
+                    }
+                }
+
+                // 2. Multi-Segment Parallel Download (files > 4MB with range support)
                 val segments = parallelSocketsPerFile.coerceIn(4, 16)
                 if (acceptsRanges && totalSize > 4 * 1024 * 1024L) {
-                    task.totalBytes = totalSize
+                    update(taskId) { it.copy(totalBytes = totalSize) }
                     val chunkSize = (totalSize + segments - 1) / segments
                     val chunkFiles = mutableListOf<File>()
                     val expectedLens = mutableListOf<Long>()
                     val workerJobs = mutableListOf<Job>()
+
+                    // Count bytes already on disk from a previous run so resumed
+                    // progress starts from the right place, not zero.
+                    for (i in 0 until segments) {
+                        val cf = File("${task.tempFilePath}.part$i")
+                        if (cf.exists()) downloaded.addAndGet(cf.length())
+                    }
 
                     for (i in 0 until segments) {
                         val start = i * chunkSize
@@ -311,14 +346,10 @@ class Aria2Engine private constructor() {
                             val chunkExisting = if (chunkFile.exists()) chunkFile.length() else 0L
                             val workerStart = start + chunkExisting
                             if (workerStart <= end) {
-                                // Build a fresh request for each segment (don't reuse builder across threads)
-                                val segReqBuilder = Request.Builder().url(directUrl)
-                                task.headers.forEach { (k, v) -> segReqBuilder.addHeader(k, v) }
-                                if (!task.headers.containsKey("User-Agent")) {
-                                    segReqBuilder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                                }
-                                segReqBuilder.addHeader("Range", "bytes=$workerStart-$end")
-                                val segRes = okHttpClient.newCall(segReqBuilder.build()).execute()
+                                val segRes = okHttpClient.newCall(
+                                    Request.Builder().url(directUrl).applyHeaders()
+                                        .addHeader("Range", "bytes=$workerStart-$end").build()
+                                ).execute()
                                 val body = segRes.body ?: return@launch
                                 val buffer = ByteArray(64 * 1024)
 
@@ -326,25 +357,12 @@ class Aria2Engine private constructor() {
                                     FileOutputStream(chunkFile, chunkExisting > 0L).use { o ->
                                         var read: Int
                                         while (input.read(buffer).also { read = it } != -1) {
-                                            if (!isActive || task.status != TaskStatus.DOWNLOADING) break
+                                            if (!isActive) break
                                             o.write(buffer, 0, read)
-                                            // All segment coroutines share lastTime/
-                                            // lastBytes, so the speed math has to be
-                                            // inside the same lock as the byte tally
-                                            // or concurrent writers produce garbage
-                                            // (even negative) readings.
-                                            synchronized(task) {
-                                                task.downloadedBytes += read
-                                                val now = System.currentTimeMillis()
-                                                val diff = now - lastTime
-                                                if (diff >= 500) {
-                                                    val bytesDiff = task.downloadedBytes - lastBytes
-                                                    task.speedBytesPerSec = bytesDiff.toDouble() / (diff.toDouble() / 1000.0)
-                                                    lastBytes = task.downloadedBytes
-                                                    lastTime = now
-                                                    emitUpdate()
-                                                }
-                                            }
+                                            downloaded.addAndGet(read.toLong())
+                                            // Only one worker reports at a time so
+                                            // the throttle state isn't raced.
+                                            synchronized(downloaded) { reportProgress() }
                                         }
                                     }
                                 }
@@ -357,13 +375,12 @@ class Aria2Engine private constructor() {
                     workerJobs.joinAll()
 
                     // Merge all chunks sequentially into target file
-                    if (isActive && task.status == TaskStatus.DOWNLOADING) {
+                    if (isActive) {
                         // Guard against silent corruption: a segment whose socket
                         // dropped leaves a short .part file, but the old code merged
                         // whatever was there and marked the task COMPLETED -- a
                         // truncated video that plays until it cuts out. Verify every
-                        // chunk is exactly the length its byte-range demands before
-                        // trusting the merge.
+                        // chunk is exactly the length its byte-range demands.
                         chunkFiles.forEachIndexed { i, chunk ->
                             val actual = if (chunk.exists()) chunk.length() else 0L
                             if (actual != expectedLens[i]) {
@@ -395,98 +412,84 @@ class Aria2Engine private constructor() {
                         val mergedLen = finalFile.length()
                         if (mergedLen != totalSize) {
                             finalFile.delete()
-                            throw Exception(
-                                "Merged file size mismatch ($mergedLen/$totalSize bytes)")
+                            throw Exception("Merged file size mismatch ($mergedLen/$totalSize bytes)")
                         }
 
-                        task.status = TaskStatus.COMPLETED
-                        task.speedBytesPerSec = 0.0
-                        emitUpdate()
+                        update(taskId) {
+                            it.copy(status = TaskStatus.COMPLETED,
+                                    downloadedBytes = totalSize, speedBytesPerSec = 0.0)
+                        }
                     }
                 } else {
                     // Fallback: Single-Connection Resilient Streaming
                     var existingBytes = if (tempFile.exists()) tempFile.length() else 0L
-                    task.downloadedBytes = existingBytes
+                    downloaded.set(existingBytes)
 
-                    val singleReqBuilder = Request.Builder().url(directUrl)
-                    task.headers.forEach { (k, v) -> singleReqBuilder.addHeader(k, v) }
-                    if (!task.headers.containsKey("User-Agent")) {
-                        singleReqBuilder.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    }
-                    if (existingBytes > 0L) {
-                        singleReqBuilder.addHeader("Range", "bytes=$existingBytes-")
-                    }
+                    val singleReqBuilder = Request.Builder().url(directUrl).applyHeaders()
+                    if (existingBytes > 0L) singleReqBuilder.addHeader("Range", "bytes=$existingBytes-")
 
                     val response = okHttpClient.newCall(singleReqBuilder.build()).execute()
                     val body = response.body ?: throw Exception("Empty response body")
                     val contentLength = body.contentLength()
-                    if (response.code == 206) {
-                        task.totalBytes = existingBytes + contentLength
+                    val knownTotal = if (response.code == 206) {
+                        existingBytes + contentLength
                     } else {
-                        task.totalBytes = contentLength
-                        task.downloadedBytes = 0L
                         existingBytes = 0L
+                        downloaded.set(0L)
+                        contentLength
                     }
+                    update(taskId) { it.copy(totalBytes = knownTotal, downloadedBytes = downloaded.get()) }
 
                     val buffer = ByteArray(64 * 1024)
-
                     body.byteStream().use { ins ->
                         FileOutputStream(tempFile, existingBytes > 0L).use { out ->
                             var read: Int
                             while (ins.read(buffer).also { read = it } != -1) {
-                                if (!isActive || task.status != TaskStatus.DOWNLOADING) break
+                                if (!isActive) break
                                 out.write(buffer, 0, read)
-                                task.downloadedBytes += read
-
-                                val now = System.currentTimeMillis()
-                                val diff = now - lastTime
-                                if (diff >= 500) {
-                                    val bytesDiff = task.downloadedBytes - lastBytes
-                                    task.speedBytesPerSec = (bytesDiff.toDouble() / (diff.toDouble() / 1000.0))
-                                    lastBytes = task.downloadedBytes
-                                    lastTime = now
-                                    emitUpdate()
-                                }
+                                downloaded.addAndGet(read.toLong())
+                                reportProgress()
                             }
                         }
                     }
                     response.close()
 
-                    if (isActive && task.status == TaskStatus.DOWNLOADING) {
+                    if (isActive) {
                         // Same corruption guard as the multi-segment path: if the
-                        // stream dropped mid-download, read() returns -1 and the
-                        // loop exits normally, so without this a half-file would be
-                        // renamed and marked COMPLETED. Only enforce when the server
-                        // told us the size (a chunked response reports -1).
-                        if (task.totalBytes > 0L && tempFile.length() != task.totalBytes) {
+                        // stream dropped mid-download, read() returns -1 and the loop
+                        // exits normally, so without this a half-file would be renamed
+                        // and marked COMPLETED. Enforce only when the server gave a
+                        // size (a chunked response reports -1).
+                        if (knownTotal > 0L && tempFile.length() != knownTotal) {
                             throw Exception(
-                                "Incomplete download (${tempFile.length()}/${task.totalBytes} bytes) - connection dropped")
+                                "Incomplete download (${tempFile.length()}/$knownTotal bytes) - connection dropped")
                         }
                         val finalFile = File(task.targetFilePath)
                         if (finalFile.exists()) finalFile.delete()
                         tempFile.renameTo(finalFile)
 
-                        task.status = TaskStatus.COMPLETED
-                        task.speedBytesPerSec = 0.0
-                        emitUpdate()
+                        update(taskId) {
+                            it.copy(status = TaskStatus.COMPLETED,
+                                    downloadedBytes = if (knownTotal > 0L) knownTotal else downloaded.get(),
+                                    speedBytesPerSec = 0.0)
+                        }
                     }
                 }
             } catch (e: CancellationException) {
                 // Gracefully handled — paused or cancelled
             } catch (e: Exception) {
-                task.status = TaskStatus.FAILED
-                task.errorMessage = e.message ?: "Download failed"
-                task.speedBytesPerSec = 0.0
-                emitUpdate()
+                update(taskId) {
+                    it.copy(status = TaskStatus.FAILED,
+                            errorMessage = e.message ?: "Download failed", speedBytesPerSec = 0.0)
+                }
             } finally {
-                activeJobs.remove(task.id)
+                activeJobs.remove(taskId)
                 // Persist the settled state (COMPLETED/FAILED, or PAUSED via
-                // cancellation) so it survives a restart. Runs on every exit
-                // path, so no terminal transition can escape unpersisted.
+                // cancellation) so it survives a restart. Runs on every exit path.
                 persist()
                 processQueue()
             }
         }
-        activeJobs[task.id] = job
+        activeJobs[taskId] = job
     }
 }
