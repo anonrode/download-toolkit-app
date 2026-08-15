@@ -12,30 +12,22 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import com.anonrode.downloader.data.net.HttpClient
 import java.net.URLEncoder
-import java.util.concurrent.TimeUnit
 
 class VpsApiClient(
     var serverUrl: String = "http://68.155.146.145",
     var apiKey: String = "",
     val clientVersion: String = "2.0.0"
 ) {
-    val defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    val defaultUserAgent = HttpClient.DEFAULT_UA
 
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
 
-    private val okHttpClient: OkHttpClient by lazy {
-        // No custom TLS: the VPS is plain http://, so a trust-all manager bought
-        // nothing and disabled certificate validation for every https call the
-        // app makes. Default OkHttp validates certs, which is what we want.
-        OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(45, TimeUnit.SECONDS)
-            .build()
-    }
+    private val okHttpClient: OkHttpClient by lazy { HttpClient.shared }
 
     private fun buildHeaders(): okhttp3.Headers {
         val builder = okhttp3.Headers.Builder()

@@ -3,18 +3,18 @@ package com.anonrode.downloader
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
+import com.anonrode.downloader.data.net.HttpClient
 
 class AnonApp : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+        // Derive from the shared client so image loads reuse the same connection
+        // pool as API/download traffic; just layer on the browser User-Agent that
+        // some poster CDNs require.
+        val client = HttpClient.shared.newBuilder()
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("User-Agent", HttpClient.DEFAULT_UA)
                     .build()
                 chain.proceed(request)
             }

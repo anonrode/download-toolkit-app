@@ -5,6 +5,7 @@ import android.os.StatFs
 import com.anonrode.downloader.data.api.VpsApiClient
 import com.anonrode.downloader.data.models.DownloadTask
 import com.anonrode.downloader.data.models.TaskStatus
+import com.anonrode.downloader.data.net.HttpClient
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,16 +18,13 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 class Aria2Engine private constructor() {
 
     companion object {
         val instance: Aria2Engine by lazy { Aria2Engine() }
-        private const val DEFAULT_UA =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        private val DEFAULT_UA = HttpClient.DEFAULT_UA
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -91,16 +89,7 @@ class Aria2Engine private constructor() {
         }
     }
 
-    private val okHttpClient: OkHttpClient by lazy {
-        // Default TLS: CDN download URLs are real https and their certificates
-        // SHOULD be validated. The previous trust-all manager silenced all cert
-        // and hostname checks app-wide -- a MITM hole for zero benefit.
-        OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build()
-    }
+    private val okHttpClient: OkHttpClient get() = HttpClient.download
 
     fun getAnonStorageDir(showName: String? = null): File {
         val base = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Anon")
