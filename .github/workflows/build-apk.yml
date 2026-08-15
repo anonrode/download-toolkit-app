@@ -1,4 +1,4 @@
-name: Build Release APK
+name: Build Native Android Release APK
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Native APK
     runs-on: ubuntu-latest
 
     steps:
@@ -23,32 +23,27 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.x'
-          channel: 'stable'
-          cache: true
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Build Split Release APKs
-        run: flutter build apk --release --split-per-abi
+      - name: Build Release APKs with Gradle
+        run: |
+          gradle wrapper
+          ./gradlew assembleRelease --stacktrace
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Anonrode-Downloader-APK
-          path: build/app/outputs/flutter-apk/*.apk
+          name: Anonrode-Downloader-Native-APK
+          path: app/build/outputs/apk/release/*.apk
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.0.0
-          name: "Anonrode Downloader v2.0.0 (Namida & Seal Edition)"
-          body: "Major v2.0 update with Namida + Seal hybrid UI, direct Instagram/YouTube/TikTok resolver, SSL certificate bypass, smart episode regex cleaner, and compact file manager."
-          files: build/app/outputs/flutter-apk/*.apk
+          name: "Anonrode Downloader v2.0.0 (Native Kotlin + Jetpack Compose Edition)"
+          body: "Major v2.0 Native Re-architecture in 100% Native Kotlin & Jetpack Compose. Embedded Aria2c 16-connection parallel downloader, Android Foreground Service dataSync, Namida OLED pitch-black UI, and Universal direct media link resolution."
+          files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

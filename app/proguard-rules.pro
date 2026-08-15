@@ -1,0 +1,5 @@
+-keep class com.anonrode.downloader.data.models.** { *; }
+-keep class okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
