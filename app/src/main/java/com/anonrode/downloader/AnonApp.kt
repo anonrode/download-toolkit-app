@@ -1,6 +1,7 @@
 package com.anonrode.downloader
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -38,6 +39,33 @@ class AnonApp : Application(), ImageLoaderFactory {
                     Log.e("AnonApp", "youtubedl-android init failed", e)
                 }
             }
+            // Keep the bundled yt-dlp current. Sites (Instagram especially)
+            // change their pages constantly, and the binary frozen into the
+            // library ages out fast -- a stale one reports "yt-dlp is out of
+            // date" and fails the extract. Runs AFTER readiness is set and in
+            // the background, so a slow/failed update (offline) never blocks the
+            // fast native path; the next launch just tries again. Throttled so
+            // it isn't a network hit every cold start.
+            if (ytdlpReady) maybeUpdateYoutubeDL()
+        }
+    }
+
+    /** STABLE-channel yt-dlp self-update, at most once per [UPDATE_INTERVAL_MS]. */
+    private suspend fun maybeUpdateYoutubeDL() {
+        val prefs = getSharedPreferences("anon_prefs", Context.MODE_PRIVATE)
+        val last = prefs.getLong(KEY_LAST_YTDLP_UPDATE, 0L)
+        val now = System.currentTimeMillis()
+        if (now - last < UPDATE_INTERVAL_MS) return
+        try {
+            val status = YoutubeDL.getInstance()
+                .updateYoutubeDL(this, YoutubeDL.UpdateChannel.STABLE)
+            // Stamp only on a real outcome so a thrown failure retries next launch.
+            prefs.edit().putLong(KEY_LAST_YTDLP_UPDATE, now).apply()
+            Log.i("AnonApp", "yt-dlp update: $status")
+        } catch (e: Exception) {
+            // Offline or update-server hiccup: keep the existing binary, retry
+            // next launch (timestamp not written).
+            Log.w("AnonApp", "yt-dlp update failed, keeping bundled binary", e)
         }
     }
 
@@ -63,6 +91,9 @@ class AnonApp : Application(), ImageLoaderFactory {
     companion object {
         private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         private val initMutex = Mutex()
+
+        private const val KEY_LAST_YTDLP_UPDATE = "last_ytdlp_update"
+        private const val UPDATE_INTERVAL_MS = 24L * 60 * 60 * 1000  // once per day
 
         @Volatile
         var ytdlpReady: Boolean = false
