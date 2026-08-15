@@ -61,6 +61,24 @@ object YoutubeDlDownloader {
             // Pass through any hotlink headers the resolver supplied (Referer,
             // User-Agent) so the CDN doesn't 403 mid-stream.
             headers.forEach { (k, v) -> addOption("--add-header", "$k:$v") }
+
+            // Download plain files with the bundled aria2c, exactly like the
+            // Termux tool did: it writes ONE file (+ a .aria2 control file) with
+            // real multi-connection congestion control, instead of the old
+            // engine's 16 stray .part fragments that also collapsed to ~40kB/s
+            // when a file-locker CDN throttled the many-connections-per-IP.
+            // yt-dlp still fetches+muxes HLS itself; only progressive files go
+            // through aria2c.
+            if (!isHls(sourceUrl)) {
+                addOption("--downloader", "libaria2c.so")
+                // Termux learned some file-locker CDNs (kissorgrab et al.)
+                // throttle or drop many-connection requests -- it dropped those
+                // to a single connection. Mirror that: few connections for the
+                // locker hosts, the usual 16 elsewhere.
+                val conns = if (isConnectionSensitive(sourceUrl)) "1" else "16"
+                addOption("--downloader-args",
+                    "aria2c:-x $conns -s $conns --min-split-size=1M --continue=true")
+            }
         }
 
         YoutubeDL.getInstance().execute(request, taskId) { progress, _, _ ->
@@ -95,13 +113,22 @@ object YoutubeDlDownloader {
     fun scaleDownloaded(percent: Float): Long =
         (percent.coerceIn(0f, 100f) / 100f * PROGRESS_SCALE).toLong()
 
-    /** True when this task should use yt-dlp rather than the native engine. */
-    fun handles(backend: String, url: String): Boolean {
-        val b = backend.lowercase()
-        if (b.contains("yt") || b.contains("dlp") || b.contains("hls")) return true
+    /** HLS streams are muxed by yt-dlp itself, not handed to aria2c. */
+    private fun isHls(url: String): Boolean {
         val u = url.lowercase()
-        return u.contains(".m3u8") || u.contains("instagram.com") ||
-                u.contains("tiktok.com") || u.contains("youtube.com") ||
-                u.contains("youtu.be") || u.contains("twitter.com") || u.contains("x.com")
+        return u.contains(".m3u8") || u.contains("/hls/") || u.contains("manifest")
+    }
+
+    /**
+     * File-locker CDNs that throttle or drop many-connection requests, so aria2c
+     * must use a single connection (the exact lesson the Termux tool encoded for
+     * kissorgrab). Matches the known locker hosts by substring; everything else
+     * gets the full 16 connections.
+     */
+    private fun isConnectionSensitive(url: String): Boolean {
+        val u = url.lowercase()
+        return u.contains("kissorgrab") || u.contains("downloadwella") ||
+                u.contains("wella") || u.contains("streamwish") ||
+                u.contains("filelions") || u.contains("vidhide")
     }
 }

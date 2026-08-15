@@ -7,6 +7,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.anonrode.downloader.data.net.HttpClient
 import com.yausername.ffmpeg.FFmpeg
+import com.yausername.aria2c.Aria2c
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLException
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ class AnonApp : Application(), ImageLoaderFactory {
                 try {
                     YoutubeDL.getInstance().init(this@AnonApp)
                     FFmpeg.getInstance().init(this@AnonApp)
+                    Aria2c.getInstance().init(this@AnonApp)
                     ytdlpReady = true
                 } catch (e: YoutubeDLException) {
                     // Left false: the HLS/social path surfaces a clear error

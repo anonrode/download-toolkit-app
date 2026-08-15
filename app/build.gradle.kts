@@ -109,13 +109,14 @@ dependencies {
     // Coil Image Loading
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // yt-dlp + ffmpeg as on-device native binaries (Maven Central, prebuilt).
-    // Handles HLS/m3u8 and social sites and muxes to a real playable mp4 --
-    // the aria2c module is intentionally omitted, the app has its own segment
-    // engine for plain files. GPL-3.0: this makes the app GPL-3.0.
+    // yt-dlp + ffmpeg + aria2c as on-device native binaries (Maven Central,
+    // prebuilt). yt-dlp muxes HLS/social to a playable mp4; for plain files it
+    // drives the bundled aria2c (single file + real congestion control, like the
+    // Termux tool). GPL-3.0: this makes the app GPL-3.0.
     val youtubedlAndroid = "0.18.1"
     implementation("io.github.junkfood02.youtubedl-android:library:$youtubedlAndroid")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroid")
+    implementation("io.github.junkfood02.youtubedl-android:aria2c:$youtubedlAndroid")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
